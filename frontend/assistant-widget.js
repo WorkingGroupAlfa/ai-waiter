@@ -2,7 +2,7 @@
 (function () {
   const API_BASE = (window.AIW_CONFIG && window.AIW_CONFIG.API_BASE_URL)
   ? window.AIW_CONFIG.API_BASE_URL
-  : "http://localhost:10000/api/v1"; // fallback для локалки
+  : "https://ai-waiter-0b4e.onrender.com"; // fallback для локалки
   let sessionToken = null;
 
   const USER_LOCALE =
