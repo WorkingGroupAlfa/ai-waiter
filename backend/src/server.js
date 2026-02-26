@@ -49,38 +49,34 @@ const server = http.createServer(app);
 // подключаем WebSocket-стриминг голоса
 setupVoiceWebSocket(server);
 
-server.listen(port, () => {
-  console.log(`AI Waiter backend listening on port ${port}`);
-});
-
 export { app };
 
 // 🔹 Простейший CORS для разработки с поддержкой credentials
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
+const allowedOrigins = new Set([
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://bd69b6a7.ai-waiter.pages.dev",
+  "https://ai-waiter-i34r.vercel.app"
+]);
 
-  if (origin) {
-    // Разрешаем конкретный origin из заголовка
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Vary', 'Origin');
-  } else {
-    // Для запросов без Origin (curl, Postman)
-    res.header('Access-Control-Allow-Origin', '*');
-  }
+app.use(cors({
+  origin: (origin, cb) => {
+    // запросы без Origin (curl/postman/server-to-server)
+    if (!origin) return cb(null, true);
 
-res.header(
-  'Access-Control-Allow-Headers',
-  'Origin, X-Requested-With, Content-Type, Accept, x-session-token, x-admin-token'
-);
+    // строгий allowlist
+    if (allowedOrigins.has(origin)) return cb(null, true);
 
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    // (опционально) разрешить все preview деплои Vercel твоего проекта:
+    // if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return cb(null, true);
 
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
+    return cb(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type", "x-session-token", "x-admin-token"]
+}));
 
 
 app.use(express.json());
@@ -107,6 +103,8 @@ app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/debug', debugRouter);
 app.use('/api/v1/actions', actionsRouter);
 
-
+server.listen(port, () => {
+  console.log(`AI Waiter backend listening on port ${port}`);
+});
 
 
