@@ -1,6 +1,6 @@
 // assistant-widget.js
 (function () {
-  const API_BASE = "http://localhost:3000/api/v1";
+  const API_BASE = "https://ai-waiter-0b4e.onrender.com/api/v1";
   let sessionToken = null;
 
   const USER_LOCALE =
@@ -761,7 +761,7 @@
     return new Promise((resolve, reject) => {
       try {
         // Для dev достаточно захардкодить localhost:3000
-        const wsUrl = "ws://localhost:3000/api/v1/voice/stream";
+        const wsUrl = "ws:https://ai-waiter-0b4e.onrender.com/api/v1";
 
         voiceWs = new WebSocket(wsUrl);
         voiceWsReady = false;

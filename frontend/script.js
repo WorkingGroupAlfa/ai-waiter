@@ -3,6 +3,8 @@ function toggleDropdown() {
   dropdown.classList.toggle("active");
 }
 
+const API_BASE = "https://ai-waiter-0b4e.onrender.com/api/v1";
+
 window.onclick = function(event) {
   if (!event.target.matches('.dropbtn')) {
     var dropdowns = document.getElementsByClassName("dropdown-content");
