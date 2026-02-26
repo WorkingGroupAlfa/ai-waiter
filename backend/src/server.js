@@ -56,9 +56,26 @@ const allowedOrigins = new Set([
   "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:8080",
+  // Cloudflare Pages (frontend)
   "https://bd69b6a7.ai-waiter.pages.dev",
-  "https://ai-waiter-i34r.vercel.app"
+  // Vercel production domain (если есть стабильный)
+  "https://ai-waiter-i34r.vercel.app",
 ]);
+
+function isAllowedVercelPreview(origin) {
+  try {
+    const u = new URL(origin);
+    // Разрешаем только домены вида:
+    // ai-waiter-i34r-*.vercel.app  (preview)
+    // и/или ai-waiter-i34r.vercel.app (prod уже в allowlist)
+    return (
+      u.hostname.endsWith(".vercel.app") &&
+      u.hostname.startsWith("ai-waiter-i34r-")
+    );
+  } catch {
+    return false;
+  }
+}
 
 app.use(cors({
   origin: (origin, cb) => {
