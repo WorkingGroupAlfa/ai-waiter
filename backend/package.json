@@ -5,9 +5,9 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "migrate": "node src/runMigrations.js"
+    "start": "node src/runMigrations.js && node src/server.js",
+  "migrate": "node src/runMigrations.js",
+    "dev": "nodemon src/server.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
