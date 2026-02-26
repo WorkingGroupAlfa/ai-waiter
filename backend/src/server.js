@@ -51,27 +51,40 @@ setupVoiceWebSocket(server);
 
 export { app };
 
-// 🔹 Простейший CORS для разработки с поддержкой credentials
-const allowedOrigins = new Set([
+// --- CORS (prod-safe allowlist + Vercel preview support) ---
+const allowedExactOrigins = new Set([
   "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:8080",
+
   // Cloudflare Pages (frontend)
   "https://bd69b6a7.ai-waiter.pages.dev",
-  // Vercel production domain (если есть стабильный)
+
+  // Vercel prod (если есть)
   "https://ai-waiter-i34r.vercel.app",
 ]);
 
-function isAllowedVercelPreview(origin) {
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // curl/postman/server-to-server
+
   try {
     const u = new URL(origin);
-    // Разрешаем только домены вида:
-    // ai-waiter-i34r-*.vercel.app  (preview)
-    // и/или ai-waiter-i34r.vercel.app (prod уже в allowlist)
-    return (
-      u.hostname.endsWith(".vercel.app") &&
-      u.hostname.startsWith("ai-waiter-i34r-")
-    );
+    const host = u.hostname;
+
+    // exact allowlist
+    if (allowedExactOrigins.has(origin)) return true;
+
+    // Cloudflare Pages: любые деплои pages.dev для этого проекта
+    // (если потом будет другой хэш — всё равно пройдёт)
+    if (host.endsWith(".pages.dev") && host.includes("ai-waiter")) return true;
+
+    // Vercel preview: разрешаем только твой проект по префиксу
+    // подходит под:
+    // ai-waiter-i34r-git-main-....vercel.app
+    // ai-waiter-i34r-xxxxx-....vercel.app
+    if (host.endsWith(".vercel.app") && host.startsWith("ai-waiter-i34r")) return true;
+
+    return false;
   } catch {
     return false;
   }
@@ -79,20 +92,13 @@ function isAllowedVercelPreview(origin) {
 
 app.use(cors({
   origin: (origin, cb) => {
-    // запросы без Origin (curl/postman/server-to-server)
-    if (!origin) return cb(null, true);
-
-    // строгий allowlist
-    if (allowedOrigins.has(origin)) return cb(null, true);
-
-    // (опционально) разрешить все preview деплои Vercel твоего проекта:
-    // if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return cb(null, true);
-
+    if (isAllowedOrigin(origin)) return cb(null, true);
     return cb(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
   methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type", "x-session-token", "x-admin-token"]
+  allowedHeaders: ["Content-Type", "x-session-token", "x-admin-token"],
+  optionsSuccessStatus: 204,
 }));
 
 
