@@ -1,0 +1,101 @@
+@font-face {
+  font-family: 'icons';
+  src:  url('../fonts/icons.eot?wrb3z3');
+  src:  url('../fonts/icons.eot?wrb3z3#iefix') format('embedded-opentype'),
+    url('../fonts/icons.ttf?wrb3z3') format('truetype'),
+    url('../fonts/icons.woff?wrb3z3') format('woff'),
+    url('../fonts/icons.svg?wrb3z3#icons') format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+[class^="_icon-"]::before,
+[class*=" _icon-"]::before {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'icons' !important;
+  speak: never;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+._icon-wifi:before {
+  content: "\e900";
+    font-size: 20px;
+  margin-right: 15px;
+}
+._icon-burger:before {
+  content: "\e901";
+}
+._icon-close:before {
+  content: "\e902";
+}
+
+._icon-close:hover {
+  color: red;
+}
+._icon-facebook:before {
+  content: "\e903";
+  font-size: 20px;
+    margin-right: 8px;
+}
+._icon-facebook:hover{
+  color:red;
+}
+._icon-instagram:before {
+  content: "\e904";
+  font-size: 20px;
+    margin-right: 8px;
+}
+._icon-instagram:hover{
+  color: red;
+}
+._icon-link:before {
+  content: "\e905";
+}
+._icon-mail:before {
+  font-size: 20px;
+  margin-right: 35px;
+  content: "\e906";
+}
+._icon-mail:hover{
+  color: red;
+}
+._icon-map:before {
+  font-size: 20px;
+  margin-right: 35px;
+  content: "\e907";
+}
+
+
+._icon-map:hover{
+  color: red;
+}
+._icon-privacy:before {
+  font-size: 20px;
+  margin-right: 8px;
+  content: "\e908";
+}
+._icon-privacy:hover{
+  color: red;
+}
+._icon-tel:before {
+  font-size: 20px;
+  margin-right: 35px;
+  content: "\e909";
+}
+._icon-tel:hover {
+  color: red;
+}
+._icon-time:before {
+  font-size: 20px;
+  margin-right: 35px;
+  content: "\e90a";
+}

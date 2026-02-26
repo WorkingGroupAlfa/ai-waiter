@@ -1,0 +1,21 @@
+# env (секреты)
+**/.env
+**/.env.*
+
+# node modules
+**/node_modules
+
+# next build
+**/.next
+**/out
+
+# logs
+**/*.log
+
+# misc
+.DS_Store
+
+cookies*.txt
+backup*.sql
+-H
+-d

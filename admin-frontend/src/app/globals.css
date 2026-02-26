@@ -1,0 +1,627 @@
+/* admin-frontend/src/app/globals.css */
+
+/* ====== Base reset & theme ====== */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+        sans-serif;
+    background-color: #1e1e1e;
+    /* основной фон */
+    color: #f5f5f5;
+}
+
+/* Убираем подчёркивание у ссылок по умолчанию */
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: none;
+}
+
+/* ====== App shell: sidebar + topbar ====== */
+
+.app-body {
+    background-color: #1e1e1e;
+    color: #f5f5f5;
+}
+
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+
+.app-sidebar {
+    width: 230px;
+    background: #141414;
+    border-right: 1px solid #333333;
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.app-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.app-brand-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #bfa76f;
+}
+
+.app-brand-subtitle {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.app-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+}
+
+.app-nav a {
+    padding: 0.4rem 0.75rem;
+    border-radius: 9999px;
+    color: #d4d4d4;
+    display: block;
+    transition: background-color 0.15s ease, color 0.15s ease,
+        transform 0.1s ease, border-color 0.15s ease;
+}
+
+.app-nav a:hover {
+    background-color: #2a2a2a;
+    color: #ffffff;
+    transform: translateX(1px);
+}
+
+.app-nav a.app-nav-highlight {
+    border: 1px solid #ed2d23;
+    color: #ffffff;
+}
+
+/* Right side */
+
+.app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Topbar */
+
+.app-topbar {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid #333333;
+    background-color: #1e1e1e;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.app-topbar-title {
+    font-size: 0.95rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #9ca3af;
+}
+
+.app-topbar-right {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+/* Content area */
+
+.app-content {
+    padding: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* ====== Cards & metrics ====== */
+
+.card {
+    background: #1b1b1b;
+    border-radius: 12px;
+    border: 1px solid #333333;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.metric-card-title {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-bottom: 0.25rem;
+}
+
+.metric-card-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+/* ====== Buttons ====== */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    padding: 0.4rem 1.1rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease,
+        transform 0.1s ease, border-color 0.15s ease, color 0.15s ease;
+    background: transparent;
+    color: #e5e7eb;
+}
+
+.btn-primary {
+    background-color: #ed2d23;
+    /* акцентный красный */
+    color: #ffffff;
+    border-color: #bfa76f;
+    box-shadow: 0 0 15px rgba(191, 167, 111, 0.6);
+    /* твой glow */
+}
+
+.btn-primary:hover {
+    background-color: #c9231b;
+    box-shadow: 0 0 18px rgba(191, 167, 111, 0.9);
+    transform: translateY(-1px);
+}
+
+.btn-ghost {
+    border-color: #333333;
+}
+
+.btn-ghost:hover {
+    background-color: #2a2a2a;
+}
+
+/* ====== Tables ====== */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+th,
+td {
+    border: 1px solid #333333;
+    padding: 0.45rem 0.6rem;
+}
+
+thead {
+    background-color: #111111;
+}
+
+tbody tr:nth-child(even) {
+    background-color: #181818;
+}
+
+tbody tr:nth-child(odd) {
+    background-color: #151515;
+}
+
+/* ====== Tag chips (Menu tags) ====== */
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    padding: 0.22rem 0.75rem;
+    border: 1px solid #333333;
+    background: transparent;
+    color: #e5e7eb;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease,
+        transform 0.1s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.tag-chip:hover {
+    background-color: #2a2a2a;
+    border-color: #555555;
+}
+
+.tag-chip:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(191, 167, 111, 0.45);
+}
+
+.tag-chip--active {
+    background-color: #ed2d23;
+    /* same as .btn-primary */
+    color: #ffffff;
+    border-color: #bfa76f;
+    box-shadow: 0 0 12px rgba(191, 167, 111, 0.55);
+}
+
+.tag-chip--active:hover {
+    background-color: #c9231b;
+    /* same as .btn-primary:hover */
+    box-shadow: 0 0 16px rgba(191, 167, 111, 0.75);
+    transform: translateY(-1px);
+}
+
+.tag-chip--sm {
+    font-size: 0.7rem;
+    padding: 0.12rem 0.55rem;
+    cursor: default;
+}
+
+.tag-chip--sm:hover {
+    background-color: transparent;
+    border-color: #333333;
+    transform: none;
+    box-shadow: none;
+}
+
+
+
+tbody tr:hover {
+    background-color: #252525;
+}
+
+/* ====== Small utilities (под наши className) ====== */
+
+.p-2 {
+    padding: 0.5rem;
+}
+
+.mt-2 {
+    margin-top: 0.5rem;
+}
+
+.mt-4 {
+    margin-top: 1rem;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+
+.mb-4 {
+    margin-bottom: 1rem;
+}
+
+.space-y-4>*+* {
+    margin-top: 1rem;
+}
+
+.space-y-6>*+* {
+    margin-top: 1.5rem;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+}
+
+.text-gray-500 {
+    color: #9ca3af;
+}
+
+.text-gray-600 {
+    color: #9ca3af;
+}
+
+.text-red-500,
+.text-red-600 {
+    color: #fca5a5;
+}
+
+.border {
+    border: 1px solid #333333;
+}
+
+.rounded {
+    border-radius: 8px;
+}
+
+.max-w-xl {
+    max-width: 72rem;
+}
+
+.max-w-sm {
+    max-width: 24rem;
+}
+
+.min-w-full {
+    min-width: 100%;
+}
+
+/* Inputs */
+
+input,
+textarea,
+select {
+    background-color: #111111;
+    border: 1px solid #333333;
+    border-radius: 8px;
+    color: #e5e7eb;
+    padding: 0.4rem 0.6rem;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: #ed2d23;
+    box-shadow: 0 0 0 1px #ed2d23;
+}
+
+/* Chips for tables in QR */
+
+.tables-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.tables-chips button {
+    border-radius: 9999px;
+    border: 1px solid #333333;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    background-color: #151515;
+}
+
+.tables-chips button:hover {
+    background-color: #252525;
+}
+
+.tables-chips button.tables-chips-active {
+    border-color: #ed2d23;
+    color: #ffffff;
+}
+
+/* ====== Extra utilities (для админки, чтобы классы работали) ====== */
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.flex {
+    display: flex;
+}
+
+.inline-flex {
+    display: inline-flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.flex-wrap {
+    flex-wrap: wrap;
+}
+
+.flex-1 {
+    flex: 1 1 0%;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.items-end {
+    align-items: flex-end;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.justify-end {
+    justify-content: flex-end;
+}
+
+.gap-1 {
+    gap: 0.25rem;
+}
+
+.gap-2 {
+    gap: 0.5rem;
+}
+
+.gap-3 {
+    gap: 0.75rem;
+}
+
+.gap-4 {
+    gap: 1rem;
+}
+
+.p-3 {
+    padding: 0.75rem;
+}
+
+.mt-1 {
+    margin-top: 0.25rem;
+}
+
+.mb-1 {
+    margin-bottom: 0.25rem;
+}
+
+.ml-2 {
+    margin-left: 0.5rem;
+}
+
+.text-xs {
+    font-size: 0.75rem;
+}
+
+.text-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.font-medium {
+    font-weight: 500;
+}
+
+.opacity-70 {
+    opacity: 0.7;
+}
+
+.rounded-full {
+    border-radius: 9999px;
+}
+
+.transition {
+    transition: all 0.15s ease;
+}
+
+.overflow-hidden {
+    overflow: hidden;
+}
+
+.overflow-x-auto {
+    overflow-x: auto;
+}
+
+.w-full {
+    width: 100%;
+}
+
+label {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+}
+
+/* ====== Menu page polish ====== */
+.muted {
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+
+.page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+/* table wrapper with rounded corners */
+.table-wrap {
+    border: 1px solid #333333;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.table-wrap table {
+    margin: 0;
+}
+
+.table-wrap thead th {
+    font-weight: 600;
+}
+
+/* nicer action buttons */
+.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.btn-danger {
+    border-color: rgba(252, 165, 165, 0.35);
+    color: #fca5a5;
+}
+
+.btn-danger:hover {
+    background-color: #2a2a2a;
+    border-color: rgba(252, 165, 165, 0.8);
+}
+
+/* tags */
+.tag-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #333333;
+    background: #151515;
+    color: #e5e7eb;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.72rem;
+    line-height: 1;
+}
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid #333333;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    background-color: #151515;
+    color: #e5e7eb;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease,
+        transform 0.1s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.tag-chip:hover {
+    background-color: #252525;
+}
+
+.tag-chip--active {
+    background-color: #ed2d23;
+    /* как btn-primary */
+    border-color: #bfa76f;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(191, 167, 111, 0.55);
+}
+
+.tag-chip--active:hover {
+    background-color: #c9231b;
+    box-shadow: 0 0 16px rgba(191, 167, 111, 0.75);
+    transform: translateY(-1px);
+}

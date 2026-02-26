@@ -1,0 +1,14 @@
+# Главная страница
+DirectoryIndex main.html
+
+# Включаем модуль перезаписи URL
+RewriteEngine On
+
+# Если запрашивается URL без расширения — ищем соответствующий .html файл
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^([^/]+)/?$ $1.html [L]
+
+# Если запрошен файл .html — перенаправляем на версию без .html (чтобы убрать расширение из адреса)
+RewriteCond %{THE_REQUEST} " /([^/]+)\.html "
+RewriteRule ^([^/]+)\.html$ /$1 [R=301,L]
+
