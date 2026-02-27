@@ -4,6 +4,24 @@ import React, { useEffect, useState } from 'react';
 import { apiClient } from '../../lib/api';
 import { ensureAdminToken } from '../../lib/auth';
 
+const ASSETS_BASE_URL = (process.env.NEXT_PUBLIC_ASSETS_BASE_URL || '').replace(/\/$/, '');
+
+function normalizePhotoInput(raw: string): string {
+  const v = (raw || '').trim();
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;          // уже полный URL
+  if (!ASSETS_BASE_URL) return v;                 // если env не задан — оставим как есть
+
+  //  - "/img/41.webp" -> `${base}/img/41.webp`
+  //  - "img/41.webp"  -> `${base}/img/41.webp`
+  //  - "41.webp"      -> `${base}/img/41.webp`
+  if (v.startsWith('/')) return `${ASSETS_BASE_URL}${v}`;
+  if (v.startsWith('img/')) return `${ASSETS_BASE_URL}/${v}`;
+  if (/^[\w.-]+\.(webp|png|jpe?g|gif|svg)$/i.test(v)) return `${ASSETS_BASE_URL}/img/${v}`;
+
+  return `${ASSETS_BASE_URL}/${v}`;
+}
+
 interface MenuItem {
   id: string;
   restaurant_id: string;
@@ -154,7 +172,7 @@ export default function MenuPage() {
         // новые поля — строки → массивы строк
         ingredients: parseCommaList(ingredientsText),
         allergens: parseCommaList(allergensText),
-        photos: parseCommaList(photosText),
+        photos: parseCommaList(photosText).map(normalizePhotoInput).filter(Boolean),
       };
 
       await apiClient.post('/admin/menu/items', payload);
@@ -194,7 +212,8 @@ export default function MenuPage() {
   async function savePhotoInline(item: MenuItem, url: string) {
     try {
       setError(null);
-      const photos = url ? [url] : [];
+          const normalized = normalizePhotoInput(url);
+    const photos = normalized ? [normalized] : [];
 
       const payload = {
         id: item.id,
@@ -287,74 +306,95 @@ export default function MenuPage() {
             <tbody>
               {items.map(item => (
                 <tr key={item.id}>
-                  <td className="border px-2 py-1" style={{ minWidth: 260 }}>
-  <input
-    defaultValue={(item.photos && item.photos[0]) || ''}
-    placeholder="https://..."
-    className="input"
-    style={{ width: '100%' }}
-    onKeyDown={e => {
-      if (e.key === 'Enter') {
-        (e.target as HTMLInputElement).blur();
-      }
-    }}
-    onBlur={e => {
-      const url = (e.target as HTMLInputElement).value.trim();
-      const current = (item.photos && item.photos[0]) || '';
-      if (url !== current) savePhotoInline(item, url);
-    }}
-  />
-</td>
-                  <td className="border px-2 py-1" style={{ whiteSpace: 'nowrap' }}>
-                    {item.item_code}
-                  </td>
-                  <td className="border px-2 py-1">{item.name_ua}</td>
-                  <td className="border px-2 py-1">{item.name_en}</td>
-                  <td className="border px-2 py-1">
-                    {Number(item.base_price).toFixed(2)}
-                  </td>
-                  <td className="border px-2 py-1">{item.category}</td>
+  {/* Code */}
+  <td className="border px-2 py-1" style={{ whiteSpace: 'nowrap' }}>
+    {item.item_code}
+  </td>
 
-                  <td className="border px-2 py-1">
-                    {Array.isArray(item.tags) && item.tags.length > 0 ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                        {item.tags.map(tag => (
-                          <span key={tag} style={tagPillStyle}>
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs opacity-70">—</span>
-                    )}
-                  </td>
+  {/* Name UA */}
+  <td className="border px-2 py-1">{item.name_ua}</td>
 
-                  <td className="border px-2 py-1">{item.is_active ? 'Yes' : 'No'}</td>
+  {/* Name EN */}
+  <td className="border px-2 py-1">{item.name_en}</td>
 
-                  <td className="border px-2 py-1">
-                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                      <button
-                        className="btn btn-ghost"
-                        style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
-                        onClick={() => startEdit(item)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="btn btn-ghost"
-                        style={{
-                          padding: '0.25rem 0.75rem',
-                          fontSize: '0.8rem',
-                          borderColor: 'rgba(252, 165, 165, 0.35)',
-                          color: '#fca5a5',
-                        }}
-                        onClick={() => handleDelete(item)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+  {/* Price */}
+  <td className="border px-2 py-1">
+    {Number(item.base_price).toFixed(2)}
+  </td>
+
+  {/* Category */}
+  <td className="border px-2 py-1">{item.category}</td>
+
+  {/* Tags */}
+  <td className="border px-2 py-1">
+    {Array.isArray(item.tags) && item.tags.length > 0 ? (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+        {item.tags.map(tag => (
+          <span key={tag} style={tagPillStyle}>{tag}</span>
+        ))}
+      </div>
+    ) : (
+      <span className="text-xs opacity-70">—</span>
+    )}
+  </td>
+
+  {/* Photo URL */}
+  <td className="border px-2 py-1" style={{ minWidth: 260 }}>
+    <input
+      defaultValue={(item.photos && item.photos[0]) || ''}
+      placeholder="/img/41.webp или 41.webp"
+      className="input"
+      style={{ width: '100%' }}
+      onKeyDown={e => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+      onBlur={e => {
+        const url = (e.target as HTMLInputElement).value.trim();
+        const current = (item.photos && item.photos[0]) || '';
+        if (url !== current) savePhotoInline(item, url);
+      }}
+    />
+
+    {((item.photos && item.photos[0]) || '').trim() ? (
+      <img
+        src={normalizePhotoInput((item.photos && item.photos[0]) || '')}
+        alt=""
+        className="mt-2 h-10 w-10 rounded object-cover border"
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    ) : null}
+  </td>
+
+  {/* Active */}
+  <td className="border px-2 py-1">{item.is_active ? 'Yes' : 'No'}</td>
+
+  {/* Actions */}
+  <td className="border px-2 py-1">
+    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+      <button
+        className="btn btn-ghost"
+        style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
+        onClick={() => startEdit(item)}
+      >
+        Edit
+      </button>
+      <button
+        className="btn btn-ghost"
+        style={{
+          padding: '0.25rem 0.75rem',
+          fontSize: '0.8rem',
+          borderColor: 'rgba(252, 165, 165, 0.35)',
+          color: '#fca5a5',
+        }}
+        onClick={() => handleDelete(item)}
+      >
+        Delete
+      </button>
+    </div>
+  </td>
+</tr>
               ))}
             </tbody>
           </table>
@@ -508,7 +548,7 @@ export default function MenuPage() {
               rows={2}
               value={photosText}
               onChange={e => setPhotosText(e.target.value)}
-              placeholder="https://..., https://..."
+              placeholder="41.webp, 74.webp или /img/41.webp, /img/74.webp"
             />
           </div>
 
