@@ -985,6 +985,18 @@
   pointer-events: none !important;
 }
 
+html.aiw-scroll-lock,
+body.aiw-scroll-lock{
+  overflow: hidden !important;
+  height: 100% !important;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+body.aiw-scroll-lock{
+  position: fixed !important;
+  width: 100% !important;
+}
+
 .aiw-upsell-trust {
         margin-top: 4px;
         font-size: 12px;
@@ -1229,36 +1241,33 @@
 
 
       /* ---------- Мобильный режим: чат на весь экран ---------- */
-      @media (max-width: 768px) {
-        @media (max-width: 768px) {
-  .aiw-chat {
-    right: 0;
-    left: 0;
-    top: 0;
-    bottom: 0;
-
+      /* ---------- Мобильный режим: чат на весь экран ---------- */
+@media (max-width: 768px) {
+  .aiw-chat{
+    position: fixed;
+    inset: 0;              /* top/right/bottom/left = 0 */
     width: 100%;
     max-width: 100%;
-    height: 100dvh;     /* iOS modern viewport */
-    height: 100vh;      /* fallback */
-
+    height: 100dvh;
+    height: 100vh;         /* fallback */
     border-radius: 0;
-    box-shadow: none;
     border: none;
-
-    overflow-x: hidden; /* ключ */
+    box-shadow: none;
+    overflow: hidden;      /* чтобы ничего не вылезало */
     overscroll-behavior: contain;
   }
 
   .aiw-chat,
-  .aiw-chat * {
+  .aiw-chat *{
     box-sizing: border-box;
     max-width: 100%;
   }
 
-  .aiw-chat-messages { overflow-x: hidden; }
+  .aiw-chat-messages{
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
 }
-      }
 
       /* ---------- Хедер чата ---------- */
       .aiw-chat-header {
@@ -3502,6 +3511,23 @@ function bindMobileKeyboardFix(chatEl) {
       // В хедере — обычный клик
     }
 
+    let __aiwScrollY = 0;
+
+function lockPageScroll() {
+  __aiwScrollY = window.scrollY || window.pageYOffset || 0;
+  document.documentElement.classList.add("aiw-scroll-lock");
+  document.body.classList.add("aiw-scroll-lock");
+  document.body.style.top = `-${__aiwScrollY}px`;
+}
+
+function unlockPageScroll() {
+  document.documentElement.classList.remove("aiw-scroll-lock");
+  document.body.classList.remove("aiw-scroll-lock");
+  const y = __aiwScrollY;
+  document.body.style.top = "";
+  window.scrollTo(0, y);
+}
+
     // ---- Открытие/закрытие чата ----
     window.toggleChat = function (forceOpen) {
       // Was chat already open before this call?
@@ -3528,6 +3554,13 @@ function bindMobileKeyboardFix(chatEl) {
           : chat.style.display === "none";
 
       chat.style.display = shouldOpen ? "flex" : "none";
+
+      const isMobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+
+if (isMobile) {
+  if (shouldOpen) lockPageScroll();
+  else unlockPageScroll();
+}
       // Init / cleanup mobile keyboard fix
 if (shouldOpen) {
   if (!kbFixCleanup) kbFixCleanup = bindMobileKeyboardFix(chat);
