@@ -1955,7 +1955,7 @@
         border: none;
         position: sticky;
         bottom: 0;
-        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        
       }
 
       /* стеклянный прозрачный инпут */
