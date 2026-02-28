@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { apiClient } from '../lib/api';
 import { ensureAdminToken } from '../lib/auth';
 
+
 interface OrdersSummary {
   count?: number;
   avg_check?: number;
