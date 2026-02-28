@@ -48,7 +48,8 @@ function buildOrderDraftForResponse(order) {
  *  - item_code (ищем первую подходящую строку)
  */
 async function resolveOrderItemId(orderId, op) {
-  const { order_item_id, item_code } = op || {};
+  const { order_item_id } = op || {};
+  const item_code = op?.item_code || op?.code || null;
 
   if (order_item_id) {
     return order_item_id;
@@ -82,6 +83,8 @@ async function applyUiOperation(session, orderId, op) {
   }
 
 if (type === 'set') {
+  const opItemCode = op?.item_code || op?.code || null;
+  const opMenuItemId = op?.menu_item_id || op?.menuItemId || null;
   const quantity = Number(op.quantity);
 
   if (!Number.isFinite(quantity)) {
@@ -108,13 +111,13 @@ if (type === 'set') {
       });
     } else {
       // нужно добавить новую позицию
-      let menuItemId = op.menu_item_id;
+      let menuItemId = opMenuItemId;
 
       // если нет menu_item_id, но есть item_code — ищем блюдо по коду
-      if (!menuItemId && op.item_code) {
+      if (!menuItemId && opItemCode) {
         const items = await getActiveMenuItemsByCodes(
           session.restaurant_id,
-          [op.item_code]
+          [opItemCode]
         );
         const menuItem = items[0];
         menuItemId = menuItem?.id || null;

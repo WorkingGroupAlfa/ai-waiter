@@ -375,8 +375,17 @@ export async function replaceMenuItemPhotos(menuItemId, photoUrls = []) {
     menuItemId,
   ]);
 
+  const normalizePhotoUrl = (u) => {
+    if (typeof u === 'string') return u.trim();
+    if (u && typeof u === 'object') {
+      if (typeof u.url === 'string') return u.url.trim();
+      if (typeof u.src === 'string') return u.src.trim();
+    }
+    return '';
+  };
+
   const urls = Array.from(
-    new Set((photoUrls || []).map((u) => (u || '').trim()).filter(Boolean))
+    new Set((photoUrls || []).map(normalizePhotoUrl).filter(Boolean))
   );
   for (const url of urls) {
     await query(

@@ -6,6 +6,10 @@ import {
   getMenuItemWithDetailsById,
   getMenuItemsBasicByCodes,
 } from '../models/menuModel.js';
+import {
+  findCustomCategoryByMention,
+  getMenuItemsByCustomCategory,
+} from '../models/customCategoryModel.js';
 import { suggestMenuByText } from '../ai/semanticMatcher.js';
 import { query } from '../db.js';
 
@@ -47,17 +51,109 @@ async function pickByTags(restaurantId, tags, limit = 6) {
   return rows || [];
 }
 
-async function pickFallbackAny(restaurantId, limit = 6) {
+function normalizeLookupText(v) {
+  return String(v || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const QUERY_STOPWORDS = new Set([
+  'хочу',
+  'пожалуйста',
+  'посоветуй',
+  'посоветуйте',
+  'покажи',
+  'что',
+  'есть',
+  'какие',
+  'какой',
+  'мне',
+  'из',
+  'для',
+  'блюдо',
+  'блюда',
+  'можно',
+  'menu',
+  'recommend',
+  'suggest',
+  'show',
+  'want',
+  'please',
+  'with',
+  'item',
+  'dish',
+]);
+
+const INGREDIENT_HINTS = [
+  ['shrimp', ['кревет', 'shrimp', 'prawn']],
+  ['salmon', ['лосос', 'salmon']],
+  ['tuna', ['тунец', 'тунц', 'tuna']],
+  ['eel', ['угор', 'вугор', 'eel', 'unagi']],
+  ['crab', ['краб', 'crab']],
+  ['scallop', ['гребін', 'гребінец', 'гребінець', 'scallop']],
+  ['squid', ['кальмар', 'squid', 'calamari']],
+  ['miso', ['місо', 'мисо', 'miso']],
+];
+
+function extractSearchTerms(text) {
+  const n = normalizeLookupText(text);
+  if (!n) return [];
+
+  const out = new Set();
+  for (const [, variants] of INGREDIENT_HINTS) {
+    if (variants.some((v) => n.includes(v))) {
+      variants.forEach((v) => out.add(v));
+    }
+  }
+
+  n.split(' ')
+    .filter((t) => t.length >= 4 && !QUERY_STOPWORDS.has(t))
+    .forEach((t) => out.add(t));
+
+  return Array.from(out);
+}
+
+async function pickByIngredientsOrName(restaurantId, queryText, limit = 6) {
+  const terms = extractSearchTerms(queryText);
+  if (!terms.length) return [];
+  const patterns = terms.map((t) => `%${t}%`);
+
   const { rows } = await query(
     `
-    SELECT item_code, COALESCE(name_en, name_ua) AS name_any
-    FROM menu_items
-    WHERE restaurant_id = $1 AND is_active = TRUE
-    ORDER BY COALESCE(category, ''), item_code
-    LIMIT $2
+    SELECT
+      m.item_code,
+      COALESCE(m.name_en, m.name_ua) AS name_any,
+      m.base_price,
+      (
+        SELECT p.url
+        FROM menu_item_photos p
+        WHERE p.menu_item_id = m.id
+        ORDER BY p.sort_order ASC, p.created_at ASC
+        LIMIT 1
+      ) AS image_url
+    FROM menu_items m
+    WHERE m.restaurant_id = $1
+      AND m.is_active = TRUE
+      AND (
+        lower(COALESCE(m.name_ua, '')) LIKE ANY($2::text[])
+        OR lower(COALESCE(m.name_en, '')) LIKE ANY($2::text[])
+        OR lower(COALESCE(m.description_ua, '')) LIKE ANY($2::text[])
+        OR lower(COALESCE(m.description_en, '')) LIKE ANY($2::text[])
+        OR EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements_text(COALESCE(m.ingredients, '[]'::jsonb)) AS ing(value)
+          WHERE lower(ing.value) LIKE ANY($2::text[])
+        )
+      )
+    ORDER BY m.name_ua ASC, m.item_code ASC
+    LIMIT $3
     `,
-    [restaurantId, Number(limit) || 6]
+    [restaurantId, patterns, Number(limit) || 6]
   );
+
   return rows || [];
 }
 
@@ -154,6 +250,39 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
     }
   }
 
+  // 0.5) Category mention fallback (rolly/soups/gunkan/temaki/etc)
+  const mentionedCategory = await findCustomCategoryByMention(restaurantId, trimmed);
+  if (mentionedCategory?.id) {
+    const categoryRows = await getMenuItemsByCustomCategory({
+      restaurantId,
+      categoryId: mentionedCategory.id,
+      limit: Number(limit) || 6,
+    });
+    if (Array.isArray(categoryRows) && categoryRows.length) {
+      return categoryRows.map((r) => ({
+        item_code: r.item_code,
+        name: r.name || r.item_code,
+        price: r.price ?? null,
+        image_url: r.image_url || null,
+      }));
+    }
+  }
+
+  // 0.75) Ingredient/name lexical search (for "блюдо с креветкой" and similar)
+  const lexicalRows = await pickByIngredientsOrName(
+    restaurantId,
+    trimmed,
+    Number(limit) || 6
+  );
+  if (lexicalRows.length) {
+    return lexicalRows.map((r) => ({
+      item_code: r.item_code,
+      name: r.name_any || r.item_code,
+      price: r.base_price ?? null,
+      image_url: r.image_url || null,
+    }));
+  }
+
   // 1) Embeddings-based suggestions
   const matches = await suggestMenuByText({
     text: trimmed,
@@ -162,27 +291,7 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
     limit,
   });
 
-  if (!matches.length) {
-    // Safe fallback list (avoid endless "уточните...")
-    const fallbackRows = await pickFallbackAny(restaurantId, limit);
-    if (!fallbackRows.length) return [];
-
-    const itemCodes = fallbackRows.map((r) => r.item_code).filter(Boolean);
-    const basics = await getMenuItemsBasicByCodes(restaurantId, itemCodes);
-    const basicsByCode = new Map(basics.map((row) => [row.item_code, row]));
-
-    return fallbackRows.map((r) => {
-      const base = basicsByCode.get(r.item_code);
-      const photos = Array.isArray(base?.photos) ? base.photos : [];
-      const imageUrl = photos.length ? photos[0] : null;
-      return {
-        item_code: r.item_code,
-        name: r.name_any || r.item_code,
-        price: base?.base_price ?? null,
-        image_url: imageUrl,
-      };
-    });
-  }
+  if (!matches.length) return [];
 
   // Подтягиваем базовые поля по item_code → цена/фото
   const itemCodes = matches.map((m) => m.item_code).filter(Boolean);
@@ -203,4 +312,3 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
     };
   });
 }
-

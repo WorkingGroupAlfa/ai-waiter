@@ -236,25 +236,72 @@ export async function findCustomCategoryByMention(restaurantId, mentionText = ''
     [restaurantId]
   );
 
-  const includes = (hay, needle) =>
-    String(hay || '')
+  const normalize = (v) =>
+    String(v || '')
       .toLowerCase()
-      .includes(String(needle || '').toLowerCase());
+      .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const mentionNorm = normalize(mention);
+  const mentionTokens = new Set(mentionNorm.split(' ').filter(Boolean));
+
+  const addKnownAliases = (terms, row) => {
+    const title = normalize(row?.name_ua || row?.name_en || row?.slug || '');
+    if (!title) return;
+
+    if (title.includes('рол')) {
+      terms.push('ролы', 'ролли', 'роллы', 'roll', 'rolls');
+    }
+    if (title.includes('суші') || title.includes('суши')) {
+      terms.push('суши', 'sushi');
+    }
+    if (title.includes('сашим')) {
+      terms.push('сашими', 'sashimi');
+    }
+    if (title.includes('тема')) {
+      terms.push('темаки', 'temaki', 'hand roll', 'handroll');
+    }
+    if (title.includes('гункан')) {
+      terms.push('гункан', 'gunkan');
+    }
+    if (title.includes('суп')) {
+      terms.push('суп', 'супы', 'soups', 'soup');
+    }
+    if (title.includes('гаряч') || title.includes('горяч') || title.includes('hot')) {
+      terms.push('горячее', 'горячие', 'hot dish', 'hot dishes');
+    }
+  };
+
+  const getTerms = (row) => {
+    const out = [];
+    out.push(row.slug, row.name_ua, row.name_en);
+    if (Array.isArray(row.aliases)) out.push(...row.aliases);
+    addKnownAliases(out, row);
+
+    return Array.from(
+      new Set(
+        out
+          .map((x) => normalize(x))
+          .filter(Boolean)
+      )
+    );
+  };
 
   for (const row of rows) {
-    if (
-      includes(mention, row.slug) ||
-      includes(mention, row.name_ua) ||
-      includes(mention, row.name_en)
-    ) {
-      return row;
-    }
-    if (Array.isArray(row.aliases)) {
-      const hit = row.aliases.some((a) => includes(mention, a));
-      if (hit) return row;
-    }
+    const terms = getTerms(row);
+    const strong = terms.some((t) => {
+      if (!t) return false;
+      if (mentionNorm === t) return true;
+      if (mentionNorm.includes(t)) return true;
+      if (t.includes(mentionNorm) && mentionNorm.length >= 4) return true;
+      const tt = t.split(' ').filter(Boolean);
+      return tt.some((w) => w.length >= 4 && mentionTokens.has(w));
+    });
+
+    if (strong) return row;
   }
 
   return null;
 }
-

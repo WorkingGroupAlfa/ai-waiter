@@ -765,52 +765,44 @@ return {
   let uiUpsell = null;
 
   try {
-    const hasStrongSpecificItem = Array.isArray(nlu?.items)
-      ? nlu.items.some(
-          (it) =>
-            it?.menu_item_id &&
-            Number.isFinite(Number(it?.matchConfidence)) &&
-            Number(it.matchConfidence) >= 0.85
-        )
-      : false;
+    const requestedCategory = await findRequestedCustomCategory({
+      restaurantId: session?.restaurant_id,
+      text: normalizedText,
+      nlu: { ...nlu, intent: resolvedIntent },
+    });
 
-    if (!hasStrongSpecificItem) {
-      const requestedCategory = await findRequestedCustomCategory({
+    if (requestedCategory) {
+      const recommendationsRaw = await getCustomCategoryRecommendations({
         restaurantId: session?.restaurant_id,
-        text: normalizedText,
-        nlu: { ...nlu, intent: resolvedIntent },
+        categoryId: requestedCategory.id,
+        limit: 12,
+      });
+      const recommendations = (recommendationsRaw || []).filter((it) =>
+        Boolean(it?.code)
+      );
+
+      const categoryLabel =
+        requestedCategory.name_en ||
+        requestedCategory.name_ua ||
+        requestedCategory.slug ||
+        'this category';
+
+      const baseTextEn = recommendations.length
+        ? `Here's what we have in ${categoryLabel}:`
+        : `We don't have items in ${categoryLabel} yet.`;
+
+      const reply = await respondInLanguage({
+        baseTextEn,
+        targetLanguage: language,
       });
 
-      if (requestedCategory) {
-        const recommendations = await getCustomCategoryRecommendations({
-          restaurantId: session?.restaurant_id,
-          categoryId: requestedCategory.id,
-          limit: 12,
-        });
-
-        const categoryLabel =
-          requestedCategory.name_en ||
-          requestedCategory.name_ua ||
-          requestedCategory.slug ||
-          'this category';
-
-        const baseTextEn = recommendations.length
-          ? `Here's what we have in ${categoryLabel}:`
-          : `We don't have items in ${categoryLabel} yet.`;
-
-        const reply = await respondInLanguage({
-          baseTextEn,
-          targetLanguage: language,
-        });
-
-        return {
-          nlu,
-          handled: true,
-          reply,
-          order: orderForResponse,
-          recommendations: recommendations.length ? recommendations : [],
-        };
-      }
+      return {
+        nlu,
+        handled: true,
+        reply,
+        order: orderForResponse,
+        recommendations,
+      };
     }
   } catch (err) {
     console.error('[DialogManager] custom category resolution failed', err);
@@ -977,12 +969,15 @@ if (!suggestions || suggestions.length === 0) {
   }
 
   // ✅ NEW: structured recommendations for UI cards (no auto-add)
-  const recommendations = suggestions.slice(0, suggestionLimit).map((s) => ({
-    code: s.item_code,                          // must exist for UI add
-    name: s.name || s.item_code,                // UI title
-    unitPrice: s.price != null ? Number(s.price) : null, // may be null, we enrich later
-    imageUrl: s.image_url || null,              // may be null, we enrich later
-  }));
+  const recommendations = suggestions
+    .slice(0, suggestionLimit)
+    .map((s) => ({
+      code: s.item_code, // must exist for UI add
+      name: s.name || s.item_code,
+      unitPrice: s.price != null ? Number(s.price) : null,
+      imageUrl: s.image_url || null,
+    }))
+    .filter((s) => Boolean(s.code));
 
   const baseTextEn = availabilityQ
     ? "We don't have that on the menu, but here are a few ideas."
@@ -2571,6 +2566,4 @@ if (!currentOrder) {
   };
 
 }
-
-
 
