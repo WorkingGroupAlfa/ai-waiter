@@ -1175,7 +1175,7 @@ body.aiw-scroll-lock{
       .aiw-chat {
         position: fixed;
         right: 16px;
-        
+        bottom: 84px;
         width: 360px;
         max-height: min(640px, 80vh);
         background: var(--aiw-bg-glass);
@@ -3512,7 +3512,33 @@ function bindMobileKeyboardFix(chatEl) {
     }
 
     let __aiwScrollY = 0;
+function applyMobileFullscreen(chatEl, enabled) {
+  const vv = window.visualViewport;
+  const h = vv ? vv.height : window.innerHeight;
 
+  if (!enabled) {
+    // cleanup inline styles
+    chatEl.style.inset = "";
+    chatEl.style.left = "";
+    chatEl.style.right = "";
+    chatEl.style.top = "";
+    chatEl.style.bottom = "";
+    chatEl.style.width = "";
+    chatEl.style.maxWidth = "";
+    chatEl.style.height = "";
+    chatEl.style.maxHeight = "";
+    chatEl.style.borderRadius = "";
+    return;
+  }
+
+  chatEl.style.position = "fixed";
+  chatEl.style.inset = "0";
+  chatEl.style.width = "100%";
+  chatEl.style.maxWidth = "100%";
+  chatEl.style.height = `${h}px`;      // важнее чем 100vh в iOS webview
+  chatEl.style.maxHeight = "none";
+  chatEl.style.borderRadius = "0";
+}
 function lockPageScroll() {
   __aiwScrollY = window.scrollY || window.pageYOffset || 0;
   document.documentElement.classList.add("aiw-scroll-lock");
@@ -3554,8 +3580,22 @@ function unlockPageScroll() {
           : chat.style.display === "none";
 
       chat.style.display = shouldOpen ? "flex" : "none";
+      if (isMobile) {
+  if (shouldOpen) {
+    lockPageScroll();
+    applyMobileFullscreen(chat, true);
+  } else {
+    applyMobileFullscreen(chat, false);
+    unlockPageScroll();
+  }
+}
 
-      const isMobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+      const vv = window.visualViewport;
+const vw = vv ? vv.width : window.innerWidth;
+
+const isMobile =
+  (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+  vw <= 820; // запас, потому что WebView/scale может давать странные числа
 
 if (isMobile) {
   if (shouldOpen) lockPageScroll();
