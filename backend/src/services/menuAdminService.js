@@ -9,6 +9,9 @@ import {
   getMenuItemWithDetailsById,
   deactivateMenuItemById,
 } from '../models/menuModel.js';
+import {
+  replaceMenuItemCustomCategories,
+} from '../models/customCategoryModel.js';
 
 import { generateMenuItemEmbeddings } from '../ai/embeddingService.js';
 
@@ -49,6 +52,7 @@ export async function createOrUpdateMenuItemWithDetails(payload) {
     ingredients = [],
     allergens = [],
     photos = [],
+    custom_category_ids = [],
   } = payload;
 
   // 1. Upsert самого блюда (+ JSON-поля состав/аллергены).
@@ -72,6 +76,7 @@ export async function createOrUpdateMenuItemWithDetails(payload) {
   await replaceMenuItemIngredients(menuItem.id, ingredients);
   await replaceMenuItemAllergens(menuItem.id, allergens);
   await replaceMenuItemPhotos(menuItem.id, photos);
+  await replaceMenuItemCustomCategories(menuItem.id, custom_category_ids);
 
   // 3. Возвращаем блюдо с полными деталями.
   const full = await getMenuItemWithDetailsById(menuItem.id);

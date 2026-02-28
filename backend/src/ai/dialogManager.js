@@ -61,6 +61,10 @@ import {
 } from '../services/orderService.js';
 import { sendOrderToStaff } from '../services/telegramService.js';
 import { getSessionByToken, touchSession } from '../services/sessionService.js';
+import {
+  findRequestedCustomCategory,
+  getCustomCategoryRecommendations,
+} from '../services/customCategoryService.js';
 
 // --- UI bundle: how many upsell items to show (2-3 depending on order size) ---
 function desiredUpsellUiCount(order = null) {
@@ -759,6 +763,58 @@ return {
 
   // 🔹 UI-апсел для текущего сообщения (по умолчанию нет)
   let uiUpsell = null;
+
+  try {
+    const hasStrongSpecificItem = Array.isArray(nlu?.items)
+      ? nlu.items.some(
+          (it) =>
+            it?.menu_item_id &&
+            Number.isFinite(Number(it?.matchConfidence)) &&
+            Number(it.matchConfidence) >= 0.85
+        )
+      : false;
+
+    if (!hasStrongSpecificItem) {
+      const requestedCategory = await findRequestedCustomCategory({
+        restaurantId: session?.restaurant_id,
+        text: normalizedText,
+        nlu: { ...nlu, intent: resolvedIntent },
+      });
+
+      if (requestedCategory) {
+        const recommendations = await getCustomCategoryRecommendations({
+          restaurantId: session?.restaurant_id,
+          categoryId: requestedCategory.id,
+          limit: 12,
+        });
+
+        const categoryLabel =
+          requestedCategory.name_en ||
+          requestedCategory.name_ua ||
+          requestedCategory.slug ||
+          'this category';
+
+        const baseTextEn = recommendations.length
+          ? `Here's what we have in ${categoryLabel}:`
+          : `We don't have items in ${categoryLabel} yet.`;
+
+        const reply = await respondInLanguage({
+          baseTextEn,
+          targetLanguage: language,
+        });
+
+        return {
+          nlu,
+          handled: true,
+          reply,
+          order: orderForResponse,
+          recommendations: recommendations.length ? recommendations : [],
+        };
+      }
+    }
+  } catch (err) {
+    console.error('[DialogManager] custom category resolution failed', err);
+  }
 
   // 4) Обработка интентов (через resolvedIntent)
   switch (resolvedIntent) {
@@ -2515,8 +2571,6 @@ if (!currentOrder) {
   };
 
 }
-
-
 
 
 

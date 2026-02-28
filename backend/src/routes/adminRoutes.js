@@ -33,6 +33,12 @@ import { createOrUpdateMenuItemWithDetails, deleteMenuItemSoft } from '../servic
 import { rebuildEmbeddingsForRestaurant } from '../ai/embeddingService.js';
 import { loadPersona, savePersona } from '../services/aiPersonaService.js';
 import { getSettings as getRestaurantSettingsSvc, updateSettings as updateRestaurantSettingsSvc, DEFAULT_DAYPARTS } from '../services/restaurantSettingsService.js';
+import {
+  listMenuCustomCategories,
+  createMenuCustomCategory,
+  updateMenuCustomCategory,
+  removeMenuCustomCategory,
+} from '../services/customCategoryService.js';
 import crypto from 'crypto';
 
 
@@ -118,6 +124,88 @@ adminRouter.delete('/menu/items/:id', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('Error in DELETE /admin/menu/items/:id', err);
     return res.status(400).json({ error: 'BAD_REQUEST', message: err?.message || String(err) });
+  }
+});
+
+/**
+ * GET /api/v1/admin/menu/custom-categories
+ * Query:
+ *  - restaurant_id (required)
+ *  - only_active=true|false (optional)
+ */
+adminRouter.get('/menu/custom-categories', adminAuth, async (req, res) => {
+  try {
+    const restaurantId = req.query?.restaurant_id;
+    if (!restaurantId) {
+      return res.status(400).json({ error: 'restaurant_id is required' });
+    }
+
+    const onlyActive = req.query?.only_active === 'true';
+    const rows = await listMenuCustomCategories(restaurantId, { onlyActive });
+    return res.json({ rows });
+  } catch (err) {
+    console.error('Error in GET /admin/menu/custom-categories', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/v1/admin/menu/custom-categories
+ * Body:
+ *  - restaurant_id, slug, name_ua, name_en?, aliases?, is_active?, sort_order?
+ */
+adminRouter.post('/menu/custom-categories', adminAuth, async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const row = await createMenuCustomCategory(payload);
+    return res.status(201).json({ row });
+  } catch (err) {
+    console.error('Error in POST /admin/menu/custom-categories', err);
+    return res.status(400).json({
+      error: 'BAD_REQUEST',
+      message: err?.message || 'Invalid payload',
+    });
+  }
+});
+
+/**
+ * PUT /api/v1/admin/menu/custom-categories/:id
+ */
+adminRouter.put('/menu/custom-categories/:id', adminAuth, async (req, res) => {
+  try {
+    const id = req.params?.id;
+    if (!id) {
+      return res.status(400).json({ error: 'id is required' });
+    }
+
+    const row = await updateMenuCustomCategory(id, req.body || {});
+    if (!row) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    return res.json({ row });
+  } catch (err) {
+    console.error('Error in PUT /admin/menu/custom-categories/:id', err);
+    return res.status(400).json({
+      error: 'BAD_REQUEST',
+      message: err?.message || 'Invalid payload',
+    });
+  }
+});
+
+/**
+ * DELETE /api/v1/admin/menu/custom-categories/:id
+ */
+adminRouter.delete('/menu/custom-categories/:id', adminAuth, async (req, res) => {
+  try {
+    const id = req.params?.id;
+    if (!id) {
+      return res.status(400).json({ error: 'id is required' });
+    }
+    const ok = await removeMenuCustomCategory(id);
+    return res.json({ ok });
+  } catch (err) {
+    console.error('Error in DELETE /admin/menu/custom-categories/:id', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -25,6 +25,14 @@ export async function getMenuItems(restaurantId, { onlyActive = true } = {}) {
       base_price,
       category,
       tags,
+      COALESCE(
+        (
+          SELECT array_agg(micc.custom_category_id::text)
+          FROM menu_item_custom_categories micc
+          WHERE micc.menu_item_id = menu_items.id
+        ),
+        ARRAY[]::text[]
+      ) AS custom_category_ids,
       is_active,
       ingredients,
       allergens
@@ -53,6 +61,14 @@ export async function getMenuItemById(id) {
       base_price,
       category,
       tags,
+      COALESCE(
+        (
+          SELECT array_agg(micc.custom_category_id::text)
+          FROM menu_item_custom_categories micc
+          WHERE micc.menu_item_id = menu_items.id
+        ),
+        ARRAY[]::text[]
+      ) AS custom_category_ids,
       is_active,
       ingredients,
       allergens
@@ -389,6 +405,14 @@ export async function getMenuItemWithDetailsById(id) {
       m.base_price,
       m.category,
       m.tags,
+      COALESCE(
+        (
+          SELECT array_agg(micc.custom_category_id::text)
+          FROM menu_item_custom_categories micc
+          WHERE micc.menu_item_id = m.id
+        ),
+        ARRAY[]::text[]
+      ) AS custom_category_ids,
       m.is_active,
       m.ingredients AS ingredients_json,
       m.allergens  AS allergens_json,
@@ -444,6 +468,14 @@ export async function getMenuItemsWithDetails(
       m.base_price,
       m.category,
       m.tags,
+      COALESCE(
+        (
+          SELECT array_agg(micc.custom_category_id::text)
+          FROM menu_item_custom_categories micc
+          WHERE micc.menu_item_id = m.id
+        ),
+        ARRAY[]::text[]
+      ) AS custom_category_ids,
       m.is_active,
       m.ingredients AS ingredients_json,
       m.allergens  AS allergens_json,

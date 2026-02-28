@@ -31,11 +31,23 @@ interface MenuItem {
   base_price: number;
   category?: string;
   tags?: string[];
+  custom_category_ids?: string[];
   is_active: boolean;
   // возможные дополнительные поля, если backend их возвращает
   ingredients?: string[] | null;
   allergens?: string[] | null;
   photos?: string[] | null;
+}
+
+interface CustomCategory {
+  id: string;
+  restaurant_id: string;
+  slug: string;
+  name_ua: string;
+  name_en?: string | null;
+  aliases?: string[] | null;
+  is_active: boolean;
+  sort_order: number;
 }
 
 const RESTAURANT_ID = 'azuma_demo';
@@ -61,6 +73,7 @@ const CATEGORY_OPTIONS = [
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [form, setForm] = useState<Partial<MenuItem>>({});
   const [ingredientsText, setIngredientsText] = useState('');
@@ -73,6 +86,7 @@ export default function MenuPage() {
   useEffect(() => {
     ensureAdminToken();
     loadItems();
+    loadCustomCategories();
   }, []);
 
   async function loadItems() {
@@ -91,6 +105,18 @@ export default function MenuPage() {
     }
   }
 
+  async function loadCustomCategories() {
+    try {
+      const res = await apiClient.get('/admin/menu/custom-categories', {
+        params: { restaurant_id: RESTAURANT_ID },
+      });
+      setCustomCategories(Array.isArray(res.data?.rows) ? res.data.rows : []);
+    } catch (err) {
+      console.error(err);
+      setError(prev => prev || 'Failed to load custom categories');
+    }
+  }
+
   function startCreate() {
     setEditing(null);
     setForm({
@@ -102,6 +128,7 @@ export default function MenuPage() {
       base_price: 0,
       category: '',
       tags: [],
+      custom_category_ids: [],
       is_active: true,
     });
     setIngredientsText('');
@@ -120,6 +147,9 @@ export default function MenuPage() {
       base_price: item.base_price,
       category: item.category || '',
       tags: Array.isArray((item as any).tags) ? (item as any).tags : [],
+      custom_category_ids: Array.isArray((item as any).custom_category_ids)
+        ? (item as any).custom_category_ids
+        : [],
       is_active: item.is_active,
     });
 
@@ -139,6 +169,16 @@ export default function MenuPage() {
       ? current.filter(t => t !== tag)
       : [...current, tag];
     setForm(prev => ({ ...prev, tags: next as any }));
+  }
+
+  function toggleCustomCategory(id: string) {
+    const current = Array.isArray(form.custom_category_ids)
+      ? form.custom_category_ids
+      : [];
+    const next = current.includes(id)
+      ? current.filter(x => x !== id)
+      : [...current, id];
+    setForm(prev => ({ ...prev, custom_category_ids: next as any }));
   }
 
   function parseCommaList(text: string): string[] {
@@ -168,6 +208,9 @@ export default function MenuPage() {
         base_price: Number(form.base_price || 0),
         category: form.category || '',
         tags: Array.isArray(form.tags) ? form.tags : [],
+        custom_category_ids: Array.isArray(form.custom_category_ids)
+          ? form.custom_category_ids
+          : [],
         is_active: form.is_active ?? true,
         // новые поля — строки → массивы строк
         ingredients: parseCommaList(ingredientsText),
@@ -224,6 +267,9 @@ export default function MenuPage() {
         base_price: Number(item.base_price || 0),
         category: item.category || '',
         tags: Array.isArray(item.tags) ? item.tags : [],
+        custom_category_ids: Array.isArray(item.custom_category_ids)
+          ? item.custom_category_ids
+          : [],
         is_active: item.is_active ?? true,
         ingredients: Array.isArray(item.ingredients) ? item.ingredients : [],
         allergens: Array.isArray(item.allergens) ? item.allergens : [],
@@ -297,6 +343,7 @@ export default function MenuPage() {
                 <th className="border px-2 py-1">Name (EN)</th>
                 <th className="border px-2 py-1">Price</th>
                 <th className="border px-2 py-1">Category</th>
+                <th className="border px-2 py-1">Custom categories</th>
                 <th className="border px-2 py-1">Tags</th>
                 <th className="border px-2 py-1">Photo URL</th>
                 <th className="border px-2 py-1">Active</th>
@@ -324,6 +371,24 @@ export default function MenuPage() {
 
   {/* Category */}
   <td className="border px-2 py-1">{item.category}</td>
+
+  {/* Custom categories */}
+  <td className="border px-2 py-1">
+    {Array.isArray(item.custom_category_ids) && item.custom_category_ids.length > 0 ? (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+        {item.custom_category_ids.map(id => {
+          const c = customCategories.find(x => x.id === id);
+          return (
+            <span key={id} style={tagPillStyle}>
+              {c?.name_ua || c?.slug || id}
+            </span>
+          );
+        })}
+      </div>
+    ) : (
+      <span className="text-xs opacity-70">—</span>
+    )}
+  </td>
 
   {/* Tags */}
   <td className="border px-2 py-1">
@@ -519,6 +584,41 @@ export default function MenuPage() {
 
             <div className="text-xs opacity-70">
               Used for smart recommendations (e.g. “хочу что-то острое” → tag=spicy)
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label>Custom categories</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {customCategories.length === 0 ? (
+                <span className="text-xs opacity-70">No custom categories yet</span>
+              ) : (
+                customCategories.map(cat => {
+                  const checked =
+                    Array.isArray(form.custom_category_ids) &&
+                    form.custom_category_ids.includes(cat.id as any);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => toggleCustomCategory(cat.id)}
+                      aria-pressed={checked}
+                      className="btn"
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        fontSize: '0.8rem',
+                        border: '1px solid #333333',
+                        background: checked ? '#ed2d23' : '#151515',
+                        borderColor: checked ? '#bfa76f' : '#333333',
+                        color: '#ffffff',
+                        boxShadow: checked ? '0 0 12px rgba(191, 167, 111, 0.55)' : 'none',
+                      }}
+                    >
+                      {cat.name_ua || cat.slug}
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 
