@@ -1175,7 +1175,7 @@ body.aiw-scroll-lock{
       .aiw-chat {
         position: fixed;
         right: 16px;
-        bottom: 84px;
+        
         width: 360px;
         max-height: min(640px, 80vh);
         background: var(--aiw-bg-glass);
