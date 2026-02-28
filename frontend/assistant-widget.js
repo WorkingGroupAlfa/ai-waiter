@@ -1230,17 +1230,34 @@
 
       /* ---------- Мобильный режим: чат на весь экран ---------- */
       @media (max-width: 768px) {
-        .aiw-chat {
-          right: 0;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 100vw;
-          max-height: 100vh;
-          border-radius: 0;
-          box-shadow: none;
-          border: none;
-        }
+        @media (max-width: 768px) {
+  .aiw-chat {
+    right: 0;
+    left: 0;
+    top: 0;
+    bottom: 0;
+
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;     /* iOS modern viewport */
+    height: 100vh;      /* fallback */
+
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+
+    overflow-x: hidden; /* ключ */
+    overscroll-behavior: contain;
+  }
+
+  .aiw-chat,
+  .aiw-chat * {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .aiw-chat-messages { overflow-x: hidden; }
+}
       }
 
       /* ---------- Хедер чата ---------- */
@@ -1938,6 +1955,7 @@
         border: none;
         position: sticky;
         bottom: 0;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
       }
 
       /* стеклянный прозрачный инпут */
@@ -1952,7 +1970,7 @@
 
   padding: 9px 14px;
   color: var(--aiw-text-main);
-  font-size: 14px;
+  font-size: 16px;
   min-height: 36px;
   box-shadow: none;
 
@@ -1969,7 +1987,7 @@
           width: 38px;
   height: 38px;
   border-radius: 999px;
-
+flex: 0 0 auto;
   /* Ещё более стеклянные */
   background: rgba(255, 255, 255, 0.03);  /* было 0.08 */
   
@@ -2875,6 +2893,63 @@
     input.type = "text";
     input.placeholder = UI_TEXTS.input_placeholder || "Message...";
 
+    // ===== Mobile keyboard fix (iOS Safari / Android) via visualViewport =====
+let kbFixCleanup = null;
+
+function bindMobileKeyboardFix(chatEl) {
+  const inputBar = chatEl.querySelector(".aiw-chat-input");
+  const messages = chatEl.querySelector(".aiw-chat-messages");
+  if (!inputBar || !messages) return null;
+
+  const vv = window.visualViewport;
+  if (!vv) return null; // no visualViewport => do nothing
+
+  let raf = 0;
+
+  const apply = () => {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      // Keyboard height estimation
+      const keyboard = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+
+      // Move input bar up
+      inputBar.style.transform = keyboard ? `translateY(${-keyboard}px)` : "";
+
+      // Keep messages visible above the input bar
+      const inputH = inputBar.getBoundingClientRect().height || 56;
+      messages.style.paddingBottom = `${inputH + keyboard}px`;
+    });
+  };
+
+  vv.addEventListener("resize", apply);
+  vv.addEventListener("scroll", apply);
+
+  // iOS sometimes fires later — call once now
+  apply();
+
+  // Also re-apply when focusing/blur input (extra stability)
+  const onFocus = () => apply();
+  const onBlur = () => {
+    inputBar.style.transform = "";
+    const inputH = inputBar.getBoundingClientRect().height || 56;
+    messages.style.paddingBottom = `${inputH}px`;
+  };
+
+  // Use the "input" element from outer scope (it exists where you paste this)
+  input.addEventListener("focus", onFocus);
+  input.addEventListener("blur", onBlur);
+
+  return () => {
+    vv.removeEventListener("resize", apply);
+    vv.removeEventListener("scroll", apply);
+    input.removeEventListener("focus", onFocus);
+    input.removeEventListener("blur", onBlur);
+
+    inputBar.style.transform = "";
+    messages.style.paddingBottom = "";
+  };
+}
+
     const sendBtn = document.createElement("button");
     sendBtn.textContent = "";
     sendBtn.className = "aiw-send-button";
@@ -3453,6 +3528,13 @@
           : chat.style.display === "none";
 
       chat.style.display = shouldOpen ? "flex" : "none";
+      // Init / cleanup mobile keyboard fix
+if (shouldOpen) {
+  if (!kbFixCleanup) kbFixCleanup = bindMobileKeyboardFix(chat);
+} else {
+  if (kbFixCleanup) kbFixCleanup();
+  kbFixCleanup = null;
+}
 
       // ensure cart overlay never auto-opens
       if (typeof closeCartOverlay === "function") {
@@ -3474,6 +3556,10 @@
       if (shouldOpen) {
         // If chat was already open, don't re-run on-open logic (prevents duplicate greetings)
         if (wasOpen) {
+          if (kbFixCleanup) {
+    // trigger reflow in case keyboard behavior changed
+    // (apply runs on focus anyway, but keep it safe)
+  }
           input.focus();
           return;
         }
