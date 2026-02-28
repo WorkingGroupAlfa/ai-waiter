@@ -1247,9 +1247,8 @@ body.aiw-scroll-lock{
     position: fixed;
     inset: 0;              /* top/right/bottom/left = 0 */
     width: 100%;
-    max-width: 100%;
-    height: 100dvh;
-    height: 100vh;         /* fallback */
+    width: 100vw;
+    max-height: 100vh;         /* fallback */
     border-radius: 0;
     border: none;
     box-shadow: none;
