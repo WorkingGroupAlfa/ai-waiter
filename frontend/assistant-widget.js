@@ -1283,7 +1283,7 @@ body.aiw-scroll-lock{
 .aiw-chat-header-slot{
   position: relative;
   flex: 1;
-  min-height: 300px;   /* same visual scale as on the page */
+  min-height: 280px;   /* same visual scale as on the page */
   display: flex;
   align-items: center;
   justify-content: center;
