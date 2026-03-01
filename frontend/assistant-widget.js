@@ -3,6 +3,9 @@
   const API_BASE = (window.AIW_CONFIG && window.AIW_CONFIG.API_BASE_URL)
   ? window.AIW_CONFIG.API_BASE_URL
   : "https://ai-waiter-0b4e.onrender.com"; // fallback для локалки
+  const ASSETS_BASE = (window.AIW_CONFIG && window.AIW_CONFIG.ASSETS_BASE_URL)
+    ? String(window.AIW_CONFIG.ASSETS_BASE_URL).replace(/\/$/, "")
+    : window.location.origin;
   let sessionToken = null;
 
   const USER_LOCALE =
@@ -155,6 +158,7 @@
 
   let lastOrderDraft = null;
   let lastOrderDraftEl = null;
+  const imageUrlByCode = new Map();
 
   // --- Voice state ---
   let mediaRecorder = null;
@@ -329,9 +333,10 @@
       thumb.className = "aiw-mini-cart-thumb";
       thumb.title = it.name || it.code || "";
 
-      if (it.imageUrl) {
+      const thumbUrl = pickImageUrl(it);
+      if (thumbUrl) {
         const img = document.createElement("img");
-        img.src = it.imageUrl;
+        img.src = thumbUrl;
         img.alt = it.name || it.code || "";
         thumb.appendChild(img);
       } else {
@@ -371,23 +376,57 @@
     return num.toFixed(2); // валюту пока не указываем
   }
 
+  function normalizeImageUrl(raw) {
+    const v = String(raw || "").trim();
+    if (!v) return "";
+    if (/^https?:\/\//i.test(v)) return v;
+    if (/^data:/i.test(v) || /^blob:/i.test(v)) return v;
+    if (v.startsWith("/")) return `${ASSETS_BASE}${v}`;
+    if (v.startsWith("img/")) return `${ASSETS_BASE}/${v}`;
+    if (/^[\w.-]+\.(webp|png|jpe?g|gif|svg)$/i.test(v)) {
+      return `${ASSETS_BASE}/img/${v}`;
+    }
+    return `${ASSETS_BASE}/${v}`;
+  }
+
+  function getItemCode(obj) {
+    if (!obj) return "";
+    return String(obj.code || obj.item_code || "").trim();
+  }
+
   function pickImageUrl(obj) {
     if (!obj) return "";
-    return (
+    const raw =
       obj.imageUrl ||
       obj.image_url ||
       obj.photo_url ||
       obj.photoUrl ||
       obj.image ||
       obj.img ||
-      ""
-    );
+      "";
+
+    const normalized = normalizeImageUrl(raw);
+    if (normalized) return normalized;
+
+    const byCode = imageUrlByCode.get(getItemCode(obj).toUpperCase());
+    return byCode || "";
+  }
+
+  function rememberImagesFromList(list) {
+    if (!Array.isArray(list)) return;
+    for (const it of list) {
+      const code = getItemCode(it);
+      const url = pickImageUrl(it);
+      if (code && url) imageUrlByCode.set(code.toUpperCase(), url);
+    }
   }
 
   function normalizeOrderDraftImages(draft) {
     if (!draft || !Array.isArray(draft.items)) return draft;
     draft.items = draft.items.map((it) => {
       const url = pickImageUrl(it);
+      const code = getItemCode(it);
+      if (url && code) imageUrlByCode.set(code.toUpperCase(), url);
       // важно: НЕ затираем если уже есть imageUrl
       return url && !it.imageUrl ? { ...it, imageUrl: url } : it;
     });
@@ -562,9 +601,10 @@
     const imgWrap = document.createElement("div");
     imgWrap.className = "aiw-order-item-image";
 
-    if (item.imageUrl) {
+    const recoImg = pickImageUrl(item);
+    if (recoImg) {
       const img = document.createElement("img");
-      img.src = item.imageUrl;
+      img.src = recoImg;
       img.alt = item.name || item.code || "";
       imgWrap.appendChild(img);
     }
@@ -643,6 +683,7 @@
 
   function appendBotMessageWithRecommendations(replyText, recommendations) {
     if (!messagesEl) return;
+    rememberImagesFromList(recommendations || []);
 
     const container = document.createElement("div");
     container.className = "aiw-msg aiw-msg-bot aiw-msg-wide aiw-msg-reco";
@@ -692,6 +733,7 @@
 
     const itemsWrap = document.createElement("div");
     itemsWrap.className = "aiw-upsell-items";
+    rememberImagesFromList(upsell.items || []);
 
     upsell.items.forEach((item) => {
       const card = document.createElement("div");
@@ -2619,9 +2661,10 @@ flex: 0 0 auto;
 
         const img = document.createElement("div");
         img.className = "aiw-cart-item-img";
-        if (item.imageUrl) {
+        const overlayImg = pickImageUrl(item);
+        if (overlayImg) {
           const i = document.createElement("img");
-          i.src = item.imageUrl;
+          i.src = overlayImg;
           i.alt = item.name || item.code || "";
           img.appendChild(i);
         }
@@ -3674,6 +3717,7 @@ if (shouldOpen) {
 
     function renderSuggestions(items) {
       suggestionsEl.innerHTML = "";
+      rememberImagesFromList(items || []);
 
       if (!items || !items.length) {
         suggestionsEl.style.display = "none";
@@ -3690,10 +3734,11 @@ if (shouldOpen) {
         card.type = "button";
         card.className = "aiw-suggestion-card";
 
-        if (item.image_url) {
+        const suggestionImg = pickImageUrl(item);
+        if (suggestionImg) {
           const img = document.createElement("img");
           img.className = "aiw-suggestion-image";
-          img.src = item.image_url;
+          img.src = suggestionImg;
           img.alt = item.name || item.item_code || "";
           card.appendChild(img);
         }
@@ -3880,6 +3925,9 @@ if (shouldOpen) {
       const orderDraft = data.orderDraft || null;
       const upsell = data.upsell || null;
       const recommendations = data.recommendations || null;
+      rememberImagesFromList(recommendations || []);
+      if (upsell && Array.isArray(upsell.items)) rememberImagesFromList(upsell.items);
+      if (orderDraft && Array.isArray(orderDraft.items)) rememberImagesFromList(orderDraft.items);
 
       if (replyText) {
         if (
@@ -3987,6 +4035,9 @@ if (shouldOpen) {
       }
 
             const data = await res.json();
+      if (data?.orderDraft && Array.isArray(data.orderDraft.items)) {
+        rememberImagesFromList(data.orderDraft.items);
+      }
       const d0 = data.orderDraft || null;
       const d1 = normalizeOrderDraftImages(d0);
       const d = mergeOrderDraftPreservingMedia(lastOrderDraft, d1);
@@ -3994,6 +4045,7 @@ if (shouldOpen) {
       // If backend returned upsell on UI update — show it as separate bot message.
       const upsell = data.upsell || null;
       if (upsell && Array.isArray(upsell.items) && upsell.items.length > 0) {
+        rememberImagesFromList(upsell.items);
         appendUpsellMessage(upsell);
       }
 
