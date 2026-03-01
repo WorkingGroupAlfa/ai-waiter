@@ -1270,7 +1270,6 @@ body.aiw-scroll-lock{
 
       /* ---------- Хедер чата ---------- */
       .aiw-chat-header {
-        padding: 12px 16px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -1587,7 +1586,7 @@ body.aiw-scroll-lock{
 
       /* ---------- Mini-cart (under header / “drops”) ---------- */
 .aiw-mini-cart{
-  margin: 10px 12px 0 12px;
+  margin: 0 12px 0 12px;
   padding: 10px 10px;
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,.10);
