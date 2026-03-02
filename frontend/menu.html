@@ -18,49 +18,37 @@
 <body>
 
     <div class="button-container">
-        <a href="main.html" class="btn-red"><img src="img/up.svg" style="rotate: -90deg;"></a>
+        <a href="#top" class="btn-gray"><img src="img/up.svg"></a>
+        <a href="main" class="btn-red"><img src="img/up.svg" style="rotate: -90deg;"></a>
     </div>
 
     <div class="wrapper">
 
         <main class="main">
             <div class="main__container">
-                <div style="display: flex; justify-content: center; align-items: center; ">
-                    <canvas id="canvas-rive" width="300" height="300" style="margin: auto;"></canvas>
-                </div>
-
-                <!-- 
-                <div class="image" id="top" style="height: 400px; position: sticky;">
-                    <img class="image_css" width="100%" height="100px" style="object-fit: contain;"
-                        src="img/668_1699971513.webp">
-                </div>
- -->
-
-
-
-
-
+                <div class="image" id="top"><img class="image_css" width="100%" height="200px"
+                        style="object-fit: contain;" src="img/668_1699971513.webp"></div>
                 <div class="scroll-tabs-container">
                     <div class="scroll-tabs-container">
                         <div class="scroll-tabs">
-                            <a href="#1" class="tab-link">НОВИНКИ</a>
-                            <a href="#2" class="tab-link">СУШІ НІГІРІ</a>
-                            <a href="#3" class="tab-link">САШИМІ</a>
-                            <a href="#4" class="tab-link">ГУНКАН</a>
-                            <a href="#5" class="tab-link">ТЕМАКІ</a>
-                            <a href="#6" class="tab-link">РОЛИ</a>
-                            <a href="#7" class="tab-link">САЛАТИ</a>
-                            <a href="#8" class="tab-link">ХОЛОДНІ ЗАКУСКИ</a>
-                            <a href="#9" class="tab-link">СУПИ</a>
-                            <a href="#10" class="tab-link">ГАРЯЧІ ЗАКУСКИ</a>
-                            <a href="#13" class="tab-link">ГАРЯЧІ ЗАКУСКИ З МОРЕПРОДУКТІВ</a>
-                            <a href="#12" class="tab-link">ДИМ САМ</a>
-                            <a href="#14" class="tab-link">ГЕЗА</a>
-                            <a href="#15" class="tab-link">ГАРНІРИ</a>
-                            <a href="#16" class="tab-link">ГАРЯЧІ СТРАВИ</a>
-                            <a href="#17" class="tab-link">РИБА</a>
-                            <a href="#18" class="tab-link">ДЕСЕРТИ</a>
-                            <a href="#19" class="tab-link">ЦУКЕРКИ</a>
+
+                            <a href="#2" data-i18n="nigiri" class="tab-link">СУШІ НІГІРІ</a>
+                            <a href="#3" data-i18n="sashimi" class="tab-link">САШИМІ</a>
+                            <a href="#4" data-i18n="gunkan" class="tab-link">ГУНКАН</a>
+                            <a href="#5" data-i18n="temaki" class="tab-link">ТЕМАКІ</a>
+                            <a href="#6" data-i18n="rolls" class="tab-link">РОЛИ</a>
+                            <a href="#7" data-i18n="salads" class="tab-link">САЛАТИ</a>
+                            <a href="#8" data-i18n="coldap" class="tab-link">ХОЛОДНІ ЗАКУСКИ</a>
+                            <a href="#9" data-i18n="soups" class="tab-link">СУПИ</a>
+                            <a href="#10" data-i18n="hotap" class="tab-link">ГАРЯЧІ ЗАКУСКИ</a>
+                            <a href="#13" data-i18n="hotsea" class="tab-link">ГАРЯЧІ ЗАКУСКИ З МОРЕПРОДУКТІВ</a>
+                            <a href="#12" data-i18n="dimsum" class="tab-link">ДИМ САМ</a>
+                            <a href="#14" data-i18n="gyoza" class="tab-link">ГЕЗА</a>
+                            <a href="#15" data-i18n="sides" class="tab-link">ГАРНІРИ</a>
+                            <a href="#16" data-i18n="hotd" class="tab-link">ГАРЯЧІ СТРАВИ</a>
+                            <a href="#17" data-i18n="fish" class="tab-link">РИБА</a>
+                            <a href="#18" data-i18n="desserts" class="tab-link">ДЕСЕРТИ</a>
+                            <a href="#19" data-i18n="candie" class="tab-link">ЦУКЕРКИ</a>
                         </div>
                     </div>
 
@@ -68,159 +56,119 @@
                 <div class="restraunt_name">
 
 
-                    <div class="menu-section" id="1">
-                        <div class="menu-title">НОВИНКИ</div>
 
-                        <div class="menu-item" data-img="">
-                            <div class="item-header">
-                                <span class="item-name">БАКЛАЖАН З СОУСОМ ЧІ</span>
-                                <span class="item-price">300</span>
-                            </div>
-                            <div class="item-description"></div>
-                        </div>
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">МІДІЇ В СОУСІ ВАСАБІ</span>
-                                <span class="item-price">650</span>
-                            </div>
-                            <div class="item-description">
-                            </div>
-                        </div>
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">САЛАТ З БАКЛАЖАНАМИ ТА ТОМАТАМИ</span>
-                                <span class="item-price">370</span>
-                            </div>
-                            <div class="item-description"></div>
-                        </div>
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">ЧИЛІЙСЬКИЙ СІБАС З МІСО СОУСОМ</span>
-                                <span class="item-price">2150</span>
-                            </div>
-                            <div class="item-description"></div>
-                        </div>
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">БАТАТ ФРІ З ТРЮФЕЛЬНИМ СОУСОМ ТА ПАРМЕЗАНОМ</span>
-                                <span class="item-price">250</span>
-                            </div>
-                            <div class="item-description"></div>
-                        </div>
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">СУП МІСО СПАЙСІ</span>
-                                <span class="item-price">380</span>
-                            </div>
-                            <div class="item-description"></div>
-                        </div>
-
-                    </div>
 
                     <div class="menu-section" id="2">
-                        <div class="menu-title">СУШІ НІГІРІ</div>
+                        <div data-i18n="nig0" class="menu-title">СУШІ НІГІРІ</div>
 
                         <div class="menu-item" data-img="img/3.jpeg">
                             <div class="item-header">
-                                <span class="item-name">ЛОСОСЬ</span>
-                                <span class="item-price">195</span>
+                                <span data-i18n="nig1" class="item-name">ЛОСОСЬ</span>
+                                <span class="item-price">220</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/4.jpeg">
                             <div class="item-header">
-                                <span class="item-name">ТУНЕЦЬ</span>
-                                <span class="item-price">195</span>
+                                <span data-i18n="nig2" class="item-name">ТУНЕЦЬ</span>
+                                <span class="item-price">290</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/5.jpeg">
                             <div class="item-header">
-                                <span class="item-name">ІКРА ЛЕТЮЧОЇ РИБИ</span>
-                                <span class="item-price">195</span>
+                                <span data-i18n="nig3" class="item-name">ІКРА ЛЕТЮЧОЇ РИБИ</span>
+                                <span class="item-price">220</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/6.jpeg">
                             <div class="item-header">
-                                <span class="item-name">КРЕВЕТКА ТИГРОВА</span>
-                                <span class="item-price">195</span>
+                                <span data-i18n="nig4" class="item-name">КРЕВЕТКА ТИГРОВА</span>
+                                <span class="item-price">220</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/7.jpeg">
                             <div class="item-header">
-                                <span class="item-name">ВУГОР</span>
-                                <span class="item-price">255</span>
+                                <span data-i18n="nig5" class="item-name">ВУГОР</span>
+                                <span class="item-price">270</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/8.webp">
                             <div class="item-header">
-                                <span class="item-name">ХРУСТКИЙ РИС З ГОСТРИМ ТУНЦЕМ <img class="spicy"
-                                        src="img/Spicy.svg" style="padding-left: 5px; "></span>
-                                <span class="item-price">380</span>
+                                <span data-i18n="nig6" class="item-name">ХРУСТКИЙ РИС З ГОСТРИМ ТУНЦЕМ <img
+                                        class="spicy" src="img/Spicy.svg" style="padding-left: 5px; "></span>
+                                <span class="item-price">455</span>
                             </div>
-                            <div class="item-description">Тунець, томат чері, цибуля шалот, ікра летючої риби, японський
+                            <div data-i18n="nig6des" class="item-description">Тунець, томат чері, цибуля шалот, ікра
+                                летючої риби, японський
                                 майонез, чілі Гуйлін</div>
                         </div>
 
                         <div class="menu-item" data-img="img/9.webp">
                             <div class="item-header">
-                                <span class="item-name">ХРУСТКИЙ РИС З ГОСТРИМ ЛОСОСЕМ <img class="spicy"
-                                        src="img/Spicy.svg" style="padding-left: 5px; "></span>
-                                <span class="item-price">380</span>
+                                <span data-i18n="nig7" class="item-name">ХРУСТКИЙ РИС З ГОСТРИМ ЛОСОСЕМ <img
+                                        class="spicy" src="img/Spicy.svg" style="padding-left: 5px; "></span>
+                                <span class="item-price">455</span>
                             </div>
-                            <div class="item-description">Лосось, томат чері, цибуля шалот, ікра летючої риби, японський
+                            <div data-i18n="nig7des" class="item-description">Лосось, томат чері, цибуля шалот, ікра
+                                летючої риби, японський
                                 майонез, чілі Гуйлін
+                            </div>
+                            <div class="item-description_white">
+                                ----------------------------------------------------------------------------------------------------------------------------------------------
                             </div>
                         </div>
                     </div>
 
                     <div class="menu-section" id="3">
-                        <div class="menu-title">САШИМІ</div>
+                        <div data-i18n="sash0" class="menu-title">САШИМІ</div>
 
                         <div class="menu-item" data-img="img/10.webp">
                             <div class="item-header">
-                                <span class="item-name">ЛОСОСЬ</span>
-                                <span class="item-price">430</span>
-                            </div>
-                            <div class="item-description"></div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/12.webp">
-                            <div class="item-header">
-                                <span class="item-name">ВУГОР</span>
-                                <span class="item-price">620</span>
+                                <span data-i18n="sash1" class="item-name">ЛОСОСЬ</span>
+                                <span class="item-price">490</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/11.webp">
                             <div class="item-header">
-                                <span class="item-name">ТУНЕЦЬ</span>
-                                <span class="item-price">420</span>
+                                <span data-i18n="sash3" class="item-name">ТУНЕЦЬ</span>
+                                <span class="item-price">590</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
+                        <div class="menu-item" data-img="img/12.webp">
+                            <div class="item-header">
+                                <span data-i18n="sash2" class="item-name">ВУГОР</span>
+                                <span class="item-price">670</span>
+                            </div>
+                            <div class="item-description"></div>
+                        </div>
+
+
+
                         <div class="menu-item" data-img="img/13.webp">
                             <div class="item-header">
-                                <span class="item-name">МОРСЬКИЙ ГРЕБІНЕЦЬ</span>
-                                <span class="item-price">490</span>
+                                <span data-i18n="sash4" class="item-name">МОРСЬКИЙ ГРЕБІНЕЦЬ</span>
+                                <span class="item-price">570</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/14.webp">
                             <div class="item-header">
-                                <span class="item-name">КРЕВЕТКА ТИГРОВА</span>
-                                <span class="item-price">320</span>
+                                <span data-i18n="sash5" class="item-name">КРЕВЕТКА ТИГРОВА</span>
+                                <span class="item-price">380</span>
                             </div>
                             <div class="item-description_white">
                                 ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -231,46 +179,49 @@
                     </div>
 
                     <div class="menu-section" id="4">
-                        <div class="menu-title">ГУНКАН</div>
+                        <div data-i18n="gunk0" class="menu-title">ГУНКАН</div>
 
                         <div class="menu-item" data-img="img/15.webp">
                             <div class="item-header">
-                                <span class="item-name">ЛОСОСЬ</span>
-                                <span class="item-price">230</span>
+                                <span data-i18n="gunk1" class="item-name">ЛОСОСЬ</span>
+                                <span class="item-price">260</span>
                             </div>
-                            <div class="item-description">Лосось, ікра летючої риби, японський майонез</div>
+                            <div data-i18n="gunk1des" class="item-description">Лосось, ікра летючої риби, японський
+                                майонез</div>
                         </div>
 
                         <div class="menu-item" data-img="img/16.webp">
                             <div class="item-header">
-                                <span class="item-name">ТУНЕЦЬ</span>
-                                <span class="item-price">230</span>
+                                <span data-i18n="gunk2" class="item-name">ТУНЕЦЬ</span>
+                                <span class="item-price">320</span>
                             </div>
-                            <div class="item-description">Тунець, ікра летючої риби, японський майонез</div>
+                            <div data-i18n="gunk2des" class="item-description">Тунець, ікра летючої риби, японський
+                                майонез</div>
                         </div>
 
                         <div class="menu-item" data-img="img/17.webp">
                             <div class="item-header">
-                                <span class="item-name">КРЕВЕТКА ТИГРОВА</span>
-                                <span class="item-price">240</span>
+                                <span data-i18n="gunk3" class="item-name">КРЕВЕТКА ТИГРОВА</span>
+                                <span class="item-price">290</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="gunk3des" class="item-description">
                                 Креветка, ікра летючої риби, японський майонез, авокадо
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/18.webp">
                             <div class="item-header">
-                                <span class="item-name">ГРЕБІНЕЦЬ</span>
-                                <span class="item-price">250</span>
+                                <span data-i18n="gunk4" class="item-name">ГРЕБІНЕЦЬ</span>
+                                <span class="item-price">320</span>
                             </div>
-                            <div class="item-description">Морський гребінець, ікра летючої риби, японський майонез</div>
+                            <div data-i18n="gunk4des" class="item-description">Морський гребінець, ікра летючої риби,
+                                японський майонез</div>
                         </div>
 
                         <div class="menu-item" data-img="img/19.webp">
                             <div class="item-header">
-                                <span class="item-name">КРАБ</span>
-                                <span class="item-price">1110</span>
+                                <span data-i18n="gunk5" class="item-name">КРАБ</span>
+                                <span class="item-price">1480</span>
                             </div>
                             <div class="item-description_white">
                                 ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -281,44 +232,49 @@
                     </div>
 
                     <div class="menu-section" id="5">
-                        <div class="menu-title">ТЕМАКІ (HAND ROLL) <br> У ЛИСТІ НОРІ/В СОЄВОМУ ЛИСТІ </div>
+                        <div data-i18n="tem0" class="menu-title">ТЕМАКІ (HAND ROLL) <br> У ЛИСТІ НОРІ/В СОЄВОМУ ЛИСТІ
+                        </div>
 
                         <div class="menu-item" data-img="img/20.webp">
                             <div class="item-header">
-                                <span class="item-name">ЛОСОСЬ</span>
-                                <span class="item-price">350</span>
+                                <span data-i18n="tem1" class="item-name">ЛОСОСЬ</span>
+                                <span class="item-price">390</span>
                             </div>
-                            <div class="item-description">Лосось, ікра летючої риби, японський майонез</div>
+                            <div data-i18n="tem1des" class="item-description">Лосось, ікра летючої риби, японський
+                                майонез</div>
                         </div>
 
                         <div class="menu-item" data-img="img/21.webp">
                             <div class="item-header">
-                                <span class="item-name">ТУНЕЦЬ</span>
-                                <span class="item-price">350</span>
+                                <span data-i18n="tem2" class="item-name">ТУНЕЦЬ</span>
+                                <span class="item-price">440</span>
                             </div>
-                            <div class="item-description">Тунець, ікра летючої риби, японський майонез</div>
+                            <div data-i18n="tem2des" class="item-description">Тунець, ікра летючої риби, японський
+                                майонез</div>
                         </div>
 
                         <div class="menu-item" data-img="img/22.webp">
                             <div class="item-header">
-                                <span class="item-name">КРЕВЕТКА ТИГРОВА</span>
-                                <span class="item-price">380</span>
+                                <span data-i18n="tem3" class="item-name">КРЕВЕТКА ТИГРОВА</span>
+                                <span class="item-price">390</span>
                             </div>
-                            <div class="item-description">Креветка, ікра летючої риби, японський майонез</div>
+                            <div data-i18n="tem3des" class="item-description">Креветка, ікра летючої риби, японський
+                                майонез</div>
                         </div>
 
                         <div class="menu-item" data-img="img/23.webp">
                             <div class="item-header">
-                                <span class="item-name">ГРЕБІНЕЦЬ</span>
-                                <span class="item-price">390</span>
+                                <span data-i18n="tem4" class="item-name">ГРЕБІНЕЦЬ</span>
+                                <span class="item-price">440</span>
                             </div>
-                            <div class="item-description">Морський гребінець, ікра летючої риби, японський майонез</div>
+                            <div data-i18n="tem4des" class="item-description">Морський гребінець, ікра летючої риби,
+                                японський майонез</div>
                         </div>
 
                         <div class="menu-item" data-img="img/24.webp">
                             <div class="item-header">
-                                <span class="item-name">КРАБ</span>
-                                <span class="item-price">1900</span>
+                                <span data-i18n="tem5" class="item-name">КРАБ</span>
+                                <span class="item-price">2190</span>
                             </div>
                             <div class="item-description_white">
                                 ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -330,173 +286,167 @@
 
 
                     <div class="menu-section" id="6">
-                        <div class="menu-title">РОЛИ</div>
+                        <div data-i18n="rol0" class="menu-title">РОЛИ</div>
 
                         <div class="menu-item" data-img="img/25.webp">
                             <div class="item-header">
-                                <span class="item-name">РОЛ З ВУГРЕМ</span>
-                                <span class="item-price">460</span>
+                                <span data-i18n="rol1" class="item-name">РОЛ З ВУГРЕМ</span>
+                                <span class="item-price">510</span>
                             </div>
-                            <div class="item-description">Вугор, авокадо, огірок, кунжут, унагі соус</div>
+                            <div data-i18n="rol1des" class="item-description">Вугор, авокадо, огірок, кунжут, унагі соус
+                            </div>
                         </div>
 
                         <div class="menu-item" data-img="img/26.webp">
                             <div class="item-header">
-                                <span class="item-name">ФІЛАДЕЛЬФІЯ ДЕ ЛЮКС</span>
-                                <span class="item-price">795</span>
+                                <span data-i18n="rol2" class="item-name">ФІЛАДЕЛЬФІЯ ДЕ ЛЮКС</span>
+                                <span class="item-price">830</span>
                             </div>
-                            <div class="item-description">Лосось, сир філадельфія, вугор, авокадо</div>
+                            <div data-i18n="rol2des" class="item-description">Лосось, сир філадельфія, вугор, авокадо
+                            </div>
                         </div>
 
                         <div class="menu-item" data-img="img/27.webp">
                             <div class="item-header">
-                                <span class="item-name">ФІЛАДЕЛЬФІЯ КЛАСИЧНА</span>
-                                <span class="item-price">610</span>
+                                <span data-i18n="rol3" class="item-name">ФІЛАДЕЛЬФІЯ КЛАСИЧНА</span>
+                                <span class="item-price">690</span>
                             </div>
-                            <div class="item-description">Лосось, сир філадельфія, авокадо</div>
+                            <div data-i18n="rol3des" class="item-description">Лосось, сир філадельфія, авокадо</div>
                         </div>
 
                         <div class="menu-item" data-img="img/28.webp">
                             <div class="item-header">
-                                <span class="item-name">ЗОЛОТИЙ ДРАКОН</span>
-                                <span class="item-price">1100</span>
+                                <span data-i18n="rol4" class="item-name">ЗОЛОТИЙ ДРАКОН</span>
+                                <span class="item-price">1240</span>
                             </div>
-                            <div class="item-description">Вугор, тунець, ікра летючої риби, унагі соус, кунжут</div>
+                            <div data-i18n="rol4des" class="item-description">Вугор, тунець, ікра летючої риби, унагі
+                                соус, кунжут</div>
                         </div>
 
                         <div class="menu-item" data-img="img/29.webp">
                             <div class="item-header">
-                                <span class="item-name">НОРВЕЖСЬКИЙ ЛОСОСЬ З ТИГРОВОЮ КРЕВЕТКОЮ</span>
-                                <span class="item-price">570</span>
+                                <span data-i18n="rol5" class="item-name">НОРВЕЖСЬКИЙ ЛОСОСЬ З ТИГРОВОЮ КРЕВЕТКОЮ</span>
+                                <span class="item-price">620</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="rol5des" class="item-description">
                                 Креветки темпура, авокадо, лосось, соус трюфельний
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/30.webp">
                             <div class="item-header">
-                                <span class="item-name">КАЛІФОРНІЯ З КРАБОМ</span>
-                                <span class="item-price">2100</span>
+                                <span data-i18n="rol6" class="item-name">КАЛІФОРНІЯ З КРАБОМ</span>
+                                <span class="item-price">2400</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="rol6des" class="item-description">
                                 Крабове м'ясо, авокадо, огірок, ікра летючої риби, японський майонез
-                            </div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/31.webp">
-                            <div class="item-header">
-                                <span class="item-name">КРАНЧ РОЛ З КРЕВЕТКОЮ</span>
-                                <span class="item-price">580</span>
-                            </div>
-                            <div class="item-description">
-                                Креветка, огірок, унагі соус, японський майонез, ікра летючої риби, темпура
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/32.webp">
                             <div class="item-header">
-                                <span class="item-name">РОЛ З КРАБОМ І АВОКАДО <img src="img/new.svg"
-                                        style="padding-left: 5px; padding-bottom: 2px;"></span>
+                                <span data-i18n="rol8" class="item-name">РОЛ З КРАБОМ І АВОКАДО</span>
                                 <span class="item-price">2875</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="rol8des" class="item-description">
                                 Крабове м'ясо, ікра летючої риби, авокадо, унагі
-                            </div>
-                        </div>
-                        <div class="menu-item" data-img="img/33.webp">
-                            <div class="item-header">
-                                <span class="item-name">РОЛ ФУТОМАКІ</span>
-                                <span class="item-price">840</span>
-                            </div>
-                            <div class="item-description">
-                                Креветка темпура, вугор, лосось, сир філадельфія, ікра летючої риби
                             </div>
                         </div>
                         <div class="menu-item" data-img="img/34.webp">
                             <div class="item-header">
-                                <span class="item-name">КАЛІФОРНІЙСЬКИЙ РОЛ З ЛОСОСЕМ</span>
-                                <span class="item-price">520</span>
+                                <span data-i18n="rol10" class="item-name">КАЛІФОРНІЙСЬКИЙ РОЛ З ЛОСОСЕМ</span>
+                                <span class="item-price">580</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="rol10des" class="item-description">
                                 Лосось, ікра летючої риби, трюфельний соус, огірок, авокадо
                             </div>
                         </div>
-                        <div class="menu-item" data-img="">
+
+                        <div class="menu-item" data-img="img/31.webp">
                             <div class="item-header">
-                                <span class="item-name">МУН РОЛ</span>
-                                <span class="item-price">650</span>
+                                <span data-i18n="rol7" class="item-name">КРАНЧ РОЛ З КРЕВЕТКОЮ</span>
+                                <span class="item-price">670</span>
                             </div>
-                            <div class="item-description">
-                                Лосось копчений, сир філадельфія, авокадо, огірок, ікра летючої риби
+                            <div data-i18n="rol7des" class="item-description">
+                                Креветка, огірок, унагі соус, японський майонез, ікра летючої риби, темпура
                             </div>
                         </div>
-                        <div class="menu-item" data-img="img/2.webp">
+
+
+                        <div class="menu-item" data-img="img/33.webp">
                             <div class="item-header">
-                                <span class="item-name">РОЛ DOUBLE FISH</span>
-                                <span class="item-price">750</span>
+                                <span data-i18n="rol9" class="item-name">РОЛ ФУТОМАКІ</span>
+                                <span class="item-price">950</span>
                             </div>
-                            <div class="item-description">
-                                Смажений лосось, вугор, авокадо, сир філадельфія, ікра летючої риби
+                            <div data-i18n="rol9des" class="item-description">
+                                Креветка темпура, вугор, лосось, сир філадельфія, ікра летючої риби
+                            </div>
+                            <div class="item-description_white">
+                                ----------------------------------------------------------------------------------------------------------------------------------------------
                             </div>
                         </div>
+
+
 
                     </div>
 
                     <div class="menu-section" id="7">
-                        <div class="menu-title">САЛАТИ</div>
+                        <div data-i18n="sal0" class="menu-title">САЛАТИ</div>
 
                         <div class="menu-item" data-img="img/35.webp">
                             <div class="item-header">
-                                <span class="item-name">САЛАТ ХИЯШИ ВАКАМЕ З ГОРІХОВИМ СОУСОМ</span>
-                                <span class="item-price">265</span>
+                                <span data-i18n="sal1" class="item-name">САЛАТ ХИЯШИ ВАКАМЕ З ГОРІХОВИМ СОУСОМ</span>
+                                <span class="item-price">350</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/36.webp">
                             <div class="item-header">
-                                <span class="item-name">ТЕПЛИЙ САЛАТ ІЗ ТЕЛЯТИНИ ПО ТАЙСЬКИ <img class="spicy"
-                                        src="img/Spicy.svg" style="padding-left: 5px; "></span>
-                                <span class="item-price">650</span>
+                                <span data-i18n="sal2" class="item-name">ТЕПЛИЙ САЛАТ ІЗ ТЕЛЯТИНИ ПО ТАЙСЬКИ <img
+                                        class="spicy" src="img/Spicy.svg" style="padding-left: 5px; "></span>
+                                <span class="item-price">695</span>
                             </div>
-                            <div class="item-description">Мікс салатів, перець болгарський, гриби шиітаки, ніжна
+                            <div data-i18n="sal2des" class="item-description">Мікс салатів, перець болгарський, гриби
+                                шиітаки, ніжна
                                 телятина, соєві паростки, чілі перець, імбирний сироп</div>
                         </div>
 
                         <div class="menu-item" data-img="img/37.webp">
                             <div class="item-header">
-                                <span class="item-name">САЛАТ З ЛОСОСЕМ</span>
-                                <span class="item-price">530</span>
+                                <span data-i18n="sal3" class="item-name">САЛАТ З ЛОСОСЕМ</span>
+                                <span class="item-price">695</span>
                             </div>
-                            <div class="item-description">Лосось татаки, селера, яблуко, арахіс, мікс салатів, часникові
+                            <div data-i18n="sal3des" class="item-description">Лосось татаки, селера, яблуко, арахіс,
+                                мікс салатів, часникові
                                 чіпси, фірмовий соус</div>
                         </div>
 
                         <div class="menu-item" data-img="img/38.webp">
                             <div class="item-header">
-                                <span class="item-name">САЛАТ МАКОТО</span>
+                                <span data-i18n="sal4" class="item-name">САЛАТ МАКОТО</span>
                                 <span class="item-price">2950</span>
                             </div>
-                            <div class="item-description">М'ясо краба, соус васабы, огырок, авокадо</div>
+                            <div data-i18n="sal4des" class="item-description">М'ясо краба, соус васабі, огірок, авокадо
+                            </div>
                         </div>
 
                         <div class="menu-item" data-img="img/39.webp">
                             <div class="item-header">
-                                <span class="item-name">РУКОЛА & КРЕВЕТКА</span>
-                                <span class="item-price">550</span>
+                                <span data-i18n="sal5" class="item-name">РУКОЛА & КРЕВЕТКА</span>
+                                <span class="item-price">620</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="sal5des" class="item-description">
                                 Креветки, томати чері, грецькі горіхи, фірмовий соус
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/40.webp">
                             <div class="item-header">
-                                <span class="item-name">САЛАТ З ВУГРЕМ ТА ГРУШЕЮ</span>
-                                <span class="item-price">700</span>
+                                <span data-i18n="sal6" class="item-name">САЛАТ З ВУГРЕМ ТА ГРУШЕЮ</span>
+                                <span class="item-price">720</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="sal6des" class="item-description">
                                 Вугор, авокадо, гостра груша, шпинат, горіховий соус, горіх
                             </div>
                         </div>
@@ -505,106 +455,116 @@
 
                         <div class="menu-item" data-img="">
                             <div class="item-header">
-                                <span class="item-name">САЛАТ З МОРЕПРОДУКТАМИ ТА ФРУКТОЮ</span>
-                                <span class="item-price">750</span>
+                                <span data-i18n="sal7" class="item-name">САЛАТ З МОРЕПРОДУКТАМИ</span>
+                                <span class="item-price">890</span>
                             </div>
-                            <div class="item-description">
-                                Креветка, лосось, кальмар, сезонна фрукта, селера, перець болгарський, базилік, морква,
-                                фірмовий соус
+                            <div data-i18n="sal7des" class="item-description">
+                                Креветка, лосось, кальмар, селера, перець болгарський, базилік, морква, фірмовий соус
+                            </div>
+                            <div class="item-description_white">
+                                ----------------------------------------------------------------------------------------------------------------------------------------------
                             </div>
                         </div>
 
                     </div>
 
                     <div class="menu-section" id="8">
-                        <div class="menu-title">ХОЛОДНІ ЗАКУСКИ</div>
+                        <div data-i18n="coldap0" class="menu-title">ХОЛОДНІ ЗАКУСКИ</div>
 
                         <div class="menu-item" data-img="img/41.webp">
                             <div class="item-header">
-                                <span class="item-name">ТАР-ТАР ЛОСОСЬ З ГУАКАМОЛЕ</span>
-                                <span class="item-price">790</span>
+                                <span data-i18n="coldap1" class="item-name">ТАР-ТАР ЛОСОСЬ З ГУАКАМОЛЕ</span>
+                                <span class="item-price">850</span>
                             </div>
-                            <div class="item-description">Лосось, японський майонез, авокадо, томат чері, мікрозелень,
+                            <div data-i18n="coldap1des" class="item-description">Лосось, японський майонез, авокадо,
+                                томат чері, мікрозелень,
                                 ікра летючої риби, юзу</div>
                         </div>
 
                         <div class="menu-item" data-img="img/42.webp">
                             <div class="item-header">
-                                <span class="item-name">ТАР-ТАР АЗУМА</span>
-                                <span class="item-price">850</span>
+                                <span data-i18n="coldap2" class="item-name">ТАР-ТАР АЗУМА</span>
+                                <span class="item-price">950</span>
                             </div>
-                            <div class="item-description">Лосось, тунець, гуакамоле юзу, японський майонез, томат чері,
+                            <div data-i18n="coldap2des" class="item-description">Лосось, тунець, гуакамоле юзу,
+                                японський майонез, томат чері,
                                 ікра летючої риби, креветочні чіпси</div>
                         </div>
 
                         <div class="menu-item" data-img="img/43.webp">
                             <div class="item-header">
-                                <span class="item-name">ТАР-ТАР З ГРЕБІНЦЯ</span>
-                                <span class="item-price">780</span>
+                                <span data-i18n="coldap3" class="item-name">ТАР-ТАР З ГРЕБІНЦЯ</span>
+                                <span class="item-price">800</span>
                             </div>
-                            <div class="item-description">Свіжий гребінець, японський майонез, ікра летючої риби,
+                            <div data-i18n="coldap3des" class="item-description">Свіжий гребінець, японський майонез,
+                                ікра летючої риби,
                                 авокадо, мікрозелень, чілі перець</div>
                         </div>
 
                         <div class="menu-item" data-img="img/44.webp">
                             <div class="item-header">
-                                <span class="item-name">ТАР-ТАР З МАРИНОВАНОЇ ТЕЛЯТИНИ</span>
-                                <span class="item-price">650</span>
+                                <span data-i18n="coldap4" class="item-name">ТАР-ТАР З МАРИНОВАНОЇ ТЕЛЯТИНИ</span>
+                                <span class="item-price">700</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item" data-img="img/45.webp">
                             <div class="item-header">
-                                <span class="item-name">ОВОЧІ З ГОРІХОВИМ СОУСОМ</span>
-                                <span class="item-price">180</span>
+                                <span data-i18n="coldap5" class="item-name">ОВОЧІ З ГОРІХОВИМ СОУСОМ</span>
+                                <span class="item-price">350</span>
                             </div>
                             <div class="item-description">
 
+                            </div>
+                            <div class="item-description_white">
+                                ----------------------------------------------------------------------------------------------------------------------------------------------
                             </div>
                         </div>
 
 
                     </div>
                     <div class="menu-section" id="9">
-                        <div class="menu-title">СУПИ</div>
+                        <div data-i18n="soup0" class="menu-title">СУПИ</div>
 
 
 
                         <div class="menu-item" data-img="img/47.webp">
                             <div class="item-header">
-                                <span class="item-name">МІСО СУП</span>
-                                <span class="item-price">250</span>
+                                <span data-i18n="soup1" class="item-name">МІСО СУП</span>
+                                <span class="item-price">320</span>
                             </div>
-                            <div class="item-description">Насичений бульйон, лосось, сир Тофу, шиітаке, вакаме, кунжут,
+                            <div data-i18n="soup1des" class="item-description">Насичений бульйон, лосось, сир Тофу,
+                                шиітаке, вакаме, кунжут,
                                 зелена цибуля</div>
                         </div>
 
                         <div class="menu-item" data-img="img/48.webp">
                             <div class="item-header">
-                                <span class="item-name">* СУП З МОРЕПРОДУКТІВ НА КОКОСОВОМУ МОЛОЦІ <img
-                                        src="img/Extra.svg" style="padding-left: 5px;"> </span>
-                                <span class="item-price">750</span>
+                                <span data-i18n="soup2" class="item-name">* СУП З МОРЕПРОДУКТІВ НА КОКОСОВОМУ МОЛОЦІ
+                                    <img src="img/Extra.svg" style="padding-left: 5px;"> </span>
+                                <span class="item-price">850</span>
                             </div>
-                            <div class="item-description"> Кокосове молоко, тигрова креветка, червоний окунь, галангал,
-                                лист лайму, чылы перець, лимонграс, печериці, паровий рис</div>
+                            <div data-i18n="soup2des" class="item-description"> Кокосове молоко, тигрова креветка,
+                                червоний окунь, галангал,
+                                лист лайму, чілі перець, лимонграс, печериці, паровий рис</div>
                         </div>
 
 
 
                         <div class="menu-item" data-img="img/50.webp">
                             <div class="item-header">
-                                <span class="item-name">* ФО БО</span>
-                                <span class="item-price">580</span>
+                                <span data-i18n="soup3" class="item-name">* ФО БО</span>
+                                <span class="item-price">630</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="soup3des" class="item-description">
                                 В'єтнамський пряний суп з телятиною та локшиною
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/51.webp">
                             <div class="item-header">
-                                <span class="item-name">КРАБОВИЙ СУП "КАНІ НАБЕ"</span>
+                                <span data-i18n="soup4" class="item-name">КРАБОВИЙ СУП "КАНІ НАБЕ"</span>
                                 <span class="item-price">1780</span>
                             </div>
                             <div class="item-description">
@@ -613,155 +573,81 @@
                         </div>
                         <div class="menu-item" data-img="img/52.webp">
                             <div class="item-header">
-                                <span class="item-name">* ТОМАТНИЙ СУП З МОРЕПРОДУКТАМИ</span>
+                                <span data-i18n="soup5" class="item-name">* ТОМАТНИЙ СУП З МОРЕПРОДУКТАМИ</span>
                                 <span class="item-price">990</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="soup5des" class="item-description">
                                 Рибний бульйон, гострий томатний соус, морський гребінець, судак, креветка тигрова,
                                 лосось, морський окунь, кальмар
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <div class="menu-section" id="10">
-                        <div class="menu-title">ГАРЯЧІ ЗАКУСКИ</div>
-
-                        <div class="menu-item" data-img="img/53.webp">
-                            <div class="item-header">
-                                <span class="item-name">СПРИНГ РОЛ З ОВОЧАМИ</span>
-                                <span class="item-price">250</span>
-                            </div>
-                            <div class="item-description">Капуста, морква, печериці, соус з цибулі</div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/54.webp">
-                            <div class="item-header">
-                                <span class="item-name">СПРИНГ РОЛ З КАЧКОЮ</span>
-                                <span class="item-price">295</span>
-                            </div>
-                            <div class="item-description">Пекінська качка, морква, корінь селери, гриби шиітаке,
-                                цибуля-порей, болгарський перець, соус хойсин</div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/55.webp">
-                            <div class="item-header">
-                                <span class="item-name">ЕДАМАМЕ <img class="spicy" src="img/Spicy.svg"
-                                        style="padding-left: 5px;"></span>
-                                <span class="item-price">250</span>
-                            </div>
-                            <div class="item-description">Японські боби, морська сіль <br> "гострі / солоні" за бажанням
-                            </div>
-                        </div>
-                    </div>
-
-
-
-                    <div class="menu-section" id="12">
-                        <div class="menu-title">ДИМ САМ NEW STYLE</div>
-
-                        <div class="menu-item" data-img="img/8.jpeg">
-                            <div class="item-header">
-                                <span class="item-name">СІОМАЙ З ГРЕБІНЦЕМ ТА ЛОСОСЕМ</span>
-                                <span class="item-price">450</span>
-                            </div>
-                            <div class="item-description">Морський гребінець, лосось, цибуля-порей, кокосове молоко
-                            </div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/59.webp">
-                            <div class="item-header">
-                                <span class="item-name">СІОМАЙ З МОРСЬКИМ ГРЕБІНЦЕМ ТА ЧЕРВОНОЮ ІКРОЮ </span>
-                                <span class="item-price">710</span>
-                            </div>
-                            <div class="item-description">Морський гребінець та тигрова креветка, яйце</div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/9.jpeg">
-                            <div class="item-header">
-                                <span class="item-name">* СІОМАЙ З КРАБОМ ТА ШПІНАТОМ</span>
-                                <span class="item-price">1150</span>
-                            </div>
-                            <div class="item-description">
-                                Краб, шпинат, креветка, імбир, соус з устриць, рослинна олія, кунжутна олія
-                            </div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/10.jpeg">
-                            <div class="item-header">
-                                <span class="item-name">ДАМПЛІНГ З ЛОСОСЕМ, ЗЕЛЕНОЮ ЦИБУЛЕЮ ТА ІКРОЮ ЛЕТЮЧОЇ РИБИ</span>
-                                <span class="item-price">400</span>
-                            </div>
-                            <div class="item-description">
-                                Лосось та зелена цибуля
-                            </div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/11.jpeg">
-                            <div class="item-header">
-                                <span class="item-name">ДАМПЛІНГ З БІЛИХ РИБ</span>
-                                <span class="item-price">320</span>
-                            </div>
-                            <div class="item-description">
-                                Судак, сибас, дорадо, соус шрірача
-                            </div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/12.jpeg">
-                            <div class="item-header">
-                                <span class="item-name">ДАМПЛІНГ АСОРТІ</span>
-                                <span class="item-price">395</span>
-                            </div>
-                            <div class="item-description">
-                                Шпинат - креветка, курка - шиітаке, лосось - зелена цибуля, з білих риб, качка
-                            </div>
-                        </div>
-
-                        <div class="menu-item" data-img="img/13.jpeg">
-                            <div class="item-header">
-                                <span class="item-name">ДАМПЛІНГ З КРЕВЕТКОЮ ТА ЦИБУЛЕЮ ПОРЕЙ</span>
-                                <span class="item-price">395</span>
-                            </div>
-                            <div class="item-description">
-                                Свіжий шпинат та тигрова креветка
-                            </div>
-                        </div>
-
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">ДАМПЛІНГ З КРОЛИКОМ</span>
-                                <span class="item-price">350</span>
                             </div>
                             <div class="item-description_white">
                                 ----------------------------------------------------------------------------------------------------------------------------------------------
                             </div>
                         </div>
 
+                    </div>
 
+                    <div class="menu-section" id="10">
+                        <div data-i18n="hotap0" class="menu-title">ГАРЯЧІ ЗАКУСКИ</div>
+
+                        <div class="menu-item" data-img="img/53.webp">
+                            <div class="item-header">
+                                <span data-i18n="hotap1" class="item-name">СПРИНГ РОЛ З ОВОЧАМИ</span>
+                                <span class="item-price">340</span>
+                            </div>
+                            <div data-i18n="hotap1des" class="item-description">Капуста, морква, печериці, соус з цибулі
+                            </div>
+                        </div>
+
+                        <div class="menu-item" data-img="img/54.webp">
+                            <div class="item-header">
+                                <span data-i18n="hotap2" class="item-name">СПРИНГ РОЛ З КАЧКОЮ</span>
+                                <span class="item-price">360</span>
+                            </div>
+                            <div data-i18n="hotap2des" class="item-description">Пекінська качка, морква, корінь селери,
+                                гриби шиітаке,
+                                цибуля-порей, болгарський перець, соус хойсин</div>
+                        </div>
+
+                        <div class="menu-item" data-img="img/55.webp">
+                            <div class="item-header">
+                                <span data-i18n="hotap3" class="item-name">ЕДАМАМЕ <img class="spicy"
+                                        src="img/Spicy.svg" style="padding-left: 5px;"></span>
+                                <span class="item-price">300</span>
+                            </div>
+                            <div data-i18n="hotap3des" class="item-description">Японські боби, морська сіль <br> "гострі
+                                / солоні" за бажанням
+                            </div>
+                            <div class="item-description_white">
+                                ----------------------------------------------------------------------------------------------------------------------------------------------
+                            </div>
+                        </div>
                     </div>
 
                     <div class="menu-section" id="13">
-                        <div class="menu-title">ГАРЯЧІ ЗАКУСКИ З МОРЕПРОДУКТІВ</div>
+                        <div data-i18n="hotapf0" class="menu-title">ГАРЯЧІ ЗАКУСКИ З МОРЕПРОДУКТІВ</div>
 
                         <div class="menu-item" data-img="img/56.webp">
                             <div class="item-header">
-                                <span class="item-name">ЕБІ ТЕМПУРА</span>
-                                <span class="item-price">390</span>
+                                <span data-i18n="hotapf1" class="item-name">ЕБІ ТЕМПУРА</span>
+                                <span class="item-price">420</span>
                             </div>
-                            <div class="item-description">Тигрова креветка з традиційним соусом темпура</div>
+                            <div data-i18n="hotapf1des" class="item-description">Тигрова креветка з традиційним соусом
+                                темпура</div>
                         </div>
 
                         <div class="menu-item" data-img="img/57.webp">
                             <div class="item-header">
-                                <span class="item-name">МИГДАЛЬНІ КРЕВЕТКИ </span>
-                                <span class="item-price">670</span>
+                                <span data-i18n="hotapf2" class="item-name">МИГДАЛЬНІ КРЕВЕТКИ </span>
+                                <span class="item-price">735</span>
                             </div>
-                            <div class="item-description">Тигрові креветки у мигдальних пластівцях</div>
+                            <div data-i18n="hotapf2des" class="item-description">Тигрові креветки у мигдальних
+                                пластівцях</div>
                         </div>
 
                         <div class="menu-item" data-img="img/58.webp">
                             <div class="item-header">
-                                <span class="item-name">ПОПКОРН З КРЕВЕТОК</span>
+                                <span data-i18n="hotapf3" class="item-name">ПОПКОРН З КРЕВЕТОК</span>
                                 <span class="item-price">520</span>
                             </div>
                             <div class="item-description_white">
@@ -770,31 +656,122 @@
                         </div>
                     </div>
 
+
+
+                    <div class="menu-section" id="12">
+                        <div data-i18n="dimsum0" class="menu-title">ДИМ САМ NEW STYLE</div>
+
+                        <div class="menu-item" data-img="img/8.jpeg">
+                            <div class="item-header">
+                                <span data-i18n="dimsum1" class="item-name">СІОМАЙ З ГРЕБІНЦЕМ ТА ЛОСОСЕМ</span>
+                                <span class="item-price">490</span>
+                            </div>
+                            <div data-i18n="dimsum1des" class="item-description">Морський гребінець, лосось,
+                                цибуля-порей, кокосове молоко
+                            </div>
+                        </div>
+
+                        <div class="menu-item" data-img="img/59.webp">
+                            <div class="item-header">
+                                <span data-i18n="dimsum2" class="item-name">СІОМАЙ З МОРСЬКИМ ГРЕБІНЦЕМ ТА ЧЕРВОНОЮ
+                                    ІКРОЮ </span>
+                                <span class="item-price">770</span>
+                            </div>
+                            <div data-i18n="dimsum2des" class="item-description">Морський гребінець та тигрова креветка,
+                                яйце</div>
+                        </div>
+
+                        <div class="menu-item" data-img="img/9.jpeg">
+                            <div class="item-header">
+                                <span data-i18n="dimsum3" class="item-name">* СІОМАЙ З КРАБОМ ТА ШПІНАТОМ</span>
+                                <span class="item-price">1150</span>
+                            </div>
+                            <div data-i18n="dimsum3des" class="item-description">
+                                Краб, шпинат, креветка, імбир, соус з устриць, рослинна олія, кунжутна олія
+                            </div>
+                        </div>
+
+                        <div class="menu-item" data-img="img/10.jpeg">
+                            <div class="item-header">
+                                <span data-i18n="dimsum4" class="item-name">ДАМПЛІНГ З ЛОСОСЕМ, ЗЕЛЕНОЮ ЦИБУЛЕЮ ТА ІКРОЮ
+                                    ЛЕТЮЧОЇ РИБИ</span>
+                                <span class="item-price">470</span>
+                            </div>
+                            <div data-i18n="dimsum4des" class="item-description">
+                                Лосось та зелена цибуля
+                            </div>
+                        </div>
+
+                        <div class="menu-item" data-img="img/11.jpeg">
+                            <div class="item-header">
+                                <span data-i18n="dimsum5" class="item-name">ДАМПЛІНГ З БІЛИХ РИБ</span>
+                                <span class="item-price">370</span>
+                            </div>
+                            <div data-i18n="dimsum5des" class="item-description">
+                                Судак, сибас, дорадо, соус шрірача
+                            </div>
+                        </div>
+
+                        <div class="menu-item" data-img="img/12.jpeg">
+                            <div class="item-header">
+                                <span data-i18n="dimsum6" class="item-name">ДАМПЛІНГ АСОРТІ</span>
+                                <span class="item-price">450</span>
+                            </div>
+                            <div data-i18n="dimsum6des" class="item-description">
+                                Шпинат - креветка, курка - шиітаке, лосось - зелена цибуля, з білих риб, качка
+                            </div>
+                        </div>
+
+                        <div class="menu-item" data-img="img/13.jpeg">
+                            <div class="item-header">
+                                <span data-i18n="dimsum7" class="item-name">ДАМПЛІНГ З КРЕВЕТКОЮ ТА ЦИБУЛЕЮ ПОРЕЙ</span>
+                                <span class="item-price">470</span>
+                            </div>
+                            <div data-i18n="dimsum7des" class="item-description">
+                                Свіжий шпинат та тигрова креветка
+                            </div>
+                        </div>
+
+                        <div class="menu-item">
+                            <div class="item-header">
+                                <span data-i18n="dimsum8" class="item-name">ДАМПЛІНГ З КРОЛИКОМ</span>
+                                <span class="item-price">420</span>
+                            </div>
+                            <div class="item-description_white">
+                                ----------------------------------------------------------------------------------------------------------------------------------------------
+                            </div>
+                        </div>
+
+
+                    </div>
+
+
+
                     <div class="menu-section" id="14">
-                        <div class="menu-title">ГЕЗА</div>
+                        <div data-i18n="gyoza0" class="menu-title">ГЕЗА</div>
 
                         <div class="menu-item" data-img="img/14.jpeg">
                             <div class="item-header">
-                                <span class="item-name">ГЕЗА З КУРКОЮ</span>
-                                <span class="item-price">290</span>
+                                <span data-i18n="gyoza1" class="item-name">ГЕЗА З КУРКОЮ</span>
+                                <span class="item-price">380</span>
                             </div>
-                            <div class="item-description">Курка, цибуля-порей, зелена цибуля</div>
+                            <div data-i18n="gyoza1des" class="item-description">Курка, цибуля-порей, зелена цибуля</div>
                         </div>
 
                         <div class="menu-item" data-img="img/15.jpeg">
                             <div class="item-header">
-                                <span class="item-name">ГЕЗА ЗІ СВИНИНОЮ ТА КРЕВЕТКОЮ</span>
-                                <span class="item-price">340</span>
+                                <span data-i18n="gyoza2" class="item-name">ГЕЗА ЗІ СВИНИНОЮ ТА КРЕВЕТКОЮ</span>
+                                <span class="item-price">380</span>
                             </div>
-                            <div class="item-description">Свинина, креветка, зелень</div>
+                            <div data-i18n="gyoza2des" class="item-description">Свинина, креветка, зелень</div>
                         </div>
 
                         <div class="menu-item" data-img="img/16.jpeg">
                             <div class="item-header">
-                                <span class="item-name">ГЕЗА З ТЕЛЯТИНОЮ ТА КРЕВЕТКОЮ</span>
-                                <span class="item-price">340</span>
+                                <span data-i18n="gyoza3" class="item-name">ГЕЗА З ТЕЛЯТИНОЮ ТА КРЕВЕТКОЮ</span>
+                                <span class="item-price">380</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="gyoza3des" class="item-description">
                                 Телятина, креветка, зелень
                             </div>
                             <div class="item-description_white">
@@ -804,29 +781,30 @@
                     </div>
 
                     <div class="menu-section" id="15">
-                        <div class="menu-title">ГАРНІРИ</div>
+                        <div data-i18n="side0" class="menu-title">ГАРНІРИ</div>
 
                         <div class="menu-item" data-img="img/60.webp">
                             <div class="item-header">
-                                <span class="item-name">ГОХАН</span>
-                                <span class="item-price">150</span>
+                                <span data-i18n="side1" class="item-name">ГОХАН</span>
+                                <span class="item-price">210</span>
                             </div>
-                            <div class="item-description">Рис паровий білий</div>
+                            <div data-i18n="side1des" class="item-description">Рис паровий білий</div>
                         </div>
 
                         <div class="menu-item" data-img="img/61.webp">
                             <div class="item-header">
-                                <span class="item-name">ЯКИ МЕШИ </span>
-                                <span class="item-price">210</span>
+                                <span data-i18n="side2" class="item-name">ЯКИ МЕШИ </span>
+                                <span class="item-price">240</span>
                             </div>
-                            <div class="item-description">Рис з грибами шиітаке, печерицями, морквою, зеленим горошком
+                            <div data-i18n="side2des" class="item-description">Рис з грибами шиітаке, печерицями,
+                                морквою, зеленим горошком
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/63.webp">
                             <div class="item-header">
-                                <span class="item-name">ГРИБИ У КИТАЙСЬКОМУ СТИЛІ</span>
-                                <span class="item-price">310</span>
+                                <span data-i18n="side3" class="item-name">ГРИБИ У КИТАЙСЬКОМУ СТИЛІ</span>
+                                <span class="item-price">380</span>
                             </div>
                             <div class="item-description">
 
@@ -835,35 +813,35 @@
 
                         <div class="menu-item" data-img="img/62.webp">
                             <div class="item-header">
-                                <span class="item-name">ТРАФЛ ФРАЙЗ</span>
+                                <span data-i18n="side4" class="item-name">ТРАФЛ ФРАЙЗ</span>
                                 <span class="item-price">270</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="side4des" class="item-description">
                                 З Сичуанським перцем та трюфелним соусом
                             </div>
                         </div>
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">СПАРЖА ГРИЛЬ</span>
-                                <span class="item-price">450</span>
+                                <span data-i18n="SWEETPOTATO" class="item-name">БАТАТ ФРІ З ТРЮФЕЛЬНИМ СОУСОМ ТА
+                                    ПАРМЕЗАНОМ</span>
+                                <span class="item-price">250</span>
                             </div>
-                            <div class="item-description_white">
-                                ----------------------------------------------------------------------------------------------------------------------------------------------
-                            </div>
+                            <div class="item-description"></div>
                         </div>
 
                     </div>
 
                     <div class="menu-section" id="16">
-                        <div class="menu-title">ГАРЯЧІ СТРАВИ</div>
+                        <div data-i18n="hotdd0" class="menu-title">ГАРЯЧІ СТРАВИ</div>
 
                         <div class="menu-item" data-img="img/64.webp">
                             <div class="item-header">
-                                <span class="item-name">ТЕЛЯТИНА З КОРЕНЕМ ЛОТОСА</span>
-                                <span class="item-price">670</span>
+                                <span data-i18n="hotdd1" class="item-name">ТЕЛЯТИНА З КОРЕНЕМ ЛОТОСА</span>
+                                <span class="item-price">750</span>
                             </div>
-                            <div class="item-description">Злегка хрумка телятина приготована в wok з соусом теріякі та
+                            <div data-i18n="hotdd1des" class="item-description">Злегка хрумка телятина приготована в wok
+                                з соусом теріякі та
                                 коренем лотоса</div>
                         </div>
 
@@ -871,8 +849,8 @@
 
                         <div class="menu-item" data-img="img/65.webp">
                             <div class="item-header">
-                                <span class="item-name">МЕДАЛЬЙОНИ З ТЕЛЯТИНИ В СОУСІ ТЕРІЯКІ</span>
-                                <span class="item-price">790</span>
+                                <span data-i18n="hotdd2" class="item-name">МЕДАЛЬЙОНИ З ТЕЛЯТИНИ В СОУСІ ТЕРІЯКІ</span>
+                                <span class="item-price">870</span>
                             </div>
                             <div class="item-description">
 
@@ -881,17 +859,18 @@
 
                         <div class="menu-item" data-img="img/66.webp">
                             <div class="item-header">
-                                <span class="item-name">РИС В ТАЙСЬКОМУ СТИЛІ</span>
-                                <span class="item-price">385</span>
+                                <span data-i18n="hotdd3" class="item-name">РИС В ТАЙСЬКОМУ СТИЛІ</span>
+                                <span class="item-price">460</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="hotdd3des" class="item-description">
                                 Рис з міксом із зелені, креветкою, соєвим соусом, приготований wok
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/67.webp">
                             <div class="item-header">
-                                <span class="item-name">РИСОВА ЛОКШИНА З ТИГРОВИМИ КРЕВЕТКАМИ ТА ОВОЧАМИ</span>
+                                <span data-i18n="hotdd4" class="item-name">РИСОВА ЛОКШИНА З ТИГРОВИМИ КРЕВЕТКАМИ ТА
+                                    ОВОЧАМИ</span>
                                 <span class="item-price">490</span>
                             </div>
                             <div class="item-description">
@@ -901,9 +880,9 @@
 
                         <div class="menu-item" data-img="img/68.webp">
                             <div class="item-header">
-                                <span class="item-name">РИСОВА ЛОКШИНА З КАЧКОЮ ПО-ПЕКІНСЬКИ <img class="spicy"
-                                        src="img/Spicy.svg" style="padding-left: 5px;"></span>
-                                <span class="item-price">490</span>
+                                <span data-i18n="hotdd5" class="item-name">РИСОВА ЛОКШИНА З КАЧКОЮ ПО-ПЕКІНСЬКИ <img
+                                        class="spicy" src="img/Spicy.svg" style="padding-left: 5px;"></span>
+                                <span class="item-price">550</span>
                             </div>
                             <div class="item-description">
 
@@ -912,49 +891,69 @@
 
                         <div class="menu-item" data-img="img/69.webp">
                             <div class="item-header">
-                                <span class="item-name">КОНГБАО <img class="spicy" src="img/Spicy.svg"
-                                        style="padding-left: 5px;"></span>
-                                <span class="item-price">520</span>
+                                <span data-i18n="hotdd6" class="item-name">КОНГБАО <img class="spicy"
+                                        src="img/Spicy.svg" style="padding-left: 5px;"></span>
+                                <span class="item-price">580</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="hotdd6des" class="item-description">
                                 Курка з овочами та спаржею у соусі Чілі
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/70.webp">
                             <div class="item-header">
-                                <span class="item-name">ЛАПША УДОН З ТЕЛЯТИНОЮ</span>
-                                <span class="item-price">630</span>
+                                <span data-i18n="hotdd7" class="item-name">ЛАПША УДОН З ТЕЛЯТИНОЮ</span>
+                                <span class="item-price">670</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="hotdd7des" class="item-description">
                                 Лапша удон, телятина, овочі
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/71.webp">
                             <div class="item-header">
-                                <span class="item-name">КРЕВЕТКА У КИСЛО-СОЛОДКОМУ СОУСІ З АНАНАСОМ</span>
-                                <span class="item-price">550</span>
+                                <span data-i18n="hotdd8" class="item-name">КРЕВЕТКА У КИСЛО-СОЛОДКОМУ СОУСІ З
+                                    АНАНАСОМ</span>
+                                <span class="item-price">580</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="hotdd8des" class="item-description">
                                 Тигрові креветки обсмажені з овочами та ананасом
                             </div>
                         </div>
 
                         <div class="menu-item" data-img="img/72.webp">
                             <div class="item-header">
-                                <span class="item-name">КАЧКА ПО-ПЕКІНСЬКИ</span>
-                                <span class="item-price">910/1620</span>
+                                <span data-i18n="hotdd9" class="item-name">КАЧКА ПО-ПЕКІНСЬКИ</span>
+                                <span class="item-price">1100/1720</span>
                             </div>
-                            <div class="item-description">
+                            <div data-i18n="hotdd9des" class="item-description">
                                 Традиційна качка, огірки свіжі, цибуля, млинці, соус хойсин
                             </div>
                         </div>
 
+
+                        <div class="menu-item">
+                            <div class="item-header">
+                                <span data-i18n="hotdd12" class="item-name">ПЕРУАНСЬКІ РЕБРА</span>
+                                <span class="item-price">890</span>
+                            </div>
+                            <div data-i18n="hotdd12des" class="item-description">
+                                Манго, чилі, соус унаги гострий
+                            </div>
+                        </div>
+                        <div class="menu-item">
+                            <div class="item-header">
+                                <span data-i18n="hotdd13" class="item-name">СТЕЙК З ТЕЛЯТИНИ</span>
+                                <span class="item-price">1420</span>
+                            </div>
+                            <div class="item-description">
+
+                            </div>
+                        </div>
                         <div class="menu-item" data-img="img/73.webp">
                             <div class="item-header">
-                                <span class="item-name">КУРЧА ТЕРІЯКІ</span>
-                                <span class="item-price">560</span>
+                                <span data-i18n="hotdd10" class="item-name">КУРЧА ТЕРІЯКІ</span>
+                                <span class="item-price">650</span>
                             </div>
                             <div class="item-description">
 
@@ -962,26 +961,8 @@
                         </div>
                         <div class="menu-item" data-img="img/74.webp">
                             <div class="item-header">
-                                <span class="item-name">КРЕВЕТКИ ГРИЛЬ</span>
+                                <span data-i18n="hotdd11" class="item-name">КРЕВЕТКИ ГРИЛЬ</span>
                                 <span class="item-price">550</span>
-                            </div>
-                            <div class="item-description">
-
-                            </div>
-                        </div>
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">ПЕРУАНСЬКІ РЕБРА</span>
-                                <span class="item-price">850</span>
-                            </div>
-                            <div class="item-description">
-                                Манго, чилі, соус унаги гострий
-                            </div>
-                        </div>
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">СТЕЙК ТЕЛЯТИНА</span>
-                                <span class="item-price">1300</span>
                             </div>
                             <div class="item-description">
 
@@ -989,7 +970,7 @@
                         </div>
                         <div class="menu-item" data-img="img/75.webp">
                             <div class="item-header">
-                                <span class="item-name">ГРЕБІНЕЦЬ ГРИЛЬ</span>
+                                <span data-i18n="hotdd14" class="item-name">ГРЕБІНЕЦЬ ГРИЛЬ</span>
                                 <span class="item-price">750</span>
                             </div>
                             <div class="item-description_white">
@@ -1001,57 +982,101 @@
 
                     </div>
                     <div class="menu-section" id="17">
-                        <div class="menu-title">РИБА</div>
+                        <div data-i18n="fisch0" class="menu-title">РИБА</div>
 
-                        <div class="menu-item" data-img="img/76.webp">
+                        <div class="menu-item" data-img="">
                             <div class="item-header">
-                                <span class="item-name">ЛОСОСЬ & СПАРЖА</span>
+                                <span data-i18n="fisch1" class="item-name">ЛОСОСЬ ТЕРІЯКІ</span>
                                 <span class="item-price">790</span>
                             </div>
-                            <div class="item-description">Лосось обсмажений в соусі теріякі, зі смаженою спаржею</div>
+                            <div data-i18n="fisch1des" class="item-description">Лосось обсмажений в соусі теріякі</div>
                         </div>
-
-                        <div class="menu-item">
+                        <div class="menu-item" data-img="img/17.jpeg">
                             <div class="item-header">
-                                <span class="item-name">СУДАК НА ГРИЛІ З ЧАСНИКОВИМ СОУСОМ</span>
-                                <span class="item-price">690</span>
+                                <span data-i18n="fisch3" class="item-name">ДОРАДО ТЕРІЯКІ З ЧЕРІ</span>
+                                <span class="item-price">820</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
-
-                        <div class="menu-item" data-img="img/17.jpeg">
+                        <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">ДОРАДО ТЕРІЯКІ З ЧЕРІ</span>
-                                <span class="item-price">750</span>
+                                <span data-i18n="fisch2" class="item-name">СУДАК НА ГРИЛІ З ЧАСНИКОВИМ СОУСОМ</span>
+                                <span class="item-price">690</span>
                             </div>
+                            <div class="item-description"></div>
                             <div class="item-description_white">
                                 ----------------------------------------------------------------------------------------------------------------------------------------------
                             </div>
                         </div>
+
+
                     </div>
 
                     <div class="menu-section" id="18">
-                        <div class="menu-title">ДЕСЕРТИ</div>
+                        <div data-i18n="dess0" class="menu-title">ДЕСЕРТИ</div>
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">ТРУБОЧКА "ФІЛО" З ЯГОДАМИ ТА КРЕМОМ МАСКАРПОНЕ</span>
-                                <span class="item-price">310</span>
+                                <span data-i18n="dess1" class="item-name">ТРУБОЧКА "ФІЛО" З ЯГОДАМИ ТА КРЕМОМ
+                                    МАСКАРПОНЕ</span>
+                                <span class="item-price">360</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">ГОРІХОВО-ШОКОЛАДНИЙ ДЕСЕРТ</span>
-                                <span class="item-price">310</span>
+                                <span data-i18n="dess2" class="item-name">ГОРІХОВО-ШОКОЛАДНИЙ ДЕСЕРТ</span>
+                                <span class="item-price">360</span>
                             </div>
                             <div class="item-description"></div>
                         </div>
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">ФІРМОВИЙ НАПОЛЕОН</span>
+                                <span data-i18n="dess3" class="item-name">ФІРМОВИЙ НАПОЛЕОН</span>
+                                <span class="item-price">270</span>
+                            </div>
+                            <div class="item-description">
+
+                            </div>
+                        </div>
+
+
+
+                        <div class="menu-item">
+                            <div class="item-header">
+                                <span data-i18n="dess5" class="item-name">ЯБЛУЧНИЙ ТАРТ</span>
+                                <span class="item-price">410</span>
+                            </div>
+                            <div class="item-description">
+
+                            </div>
+                        </div>
+
+                        <div class="menu-item">
+                            <div class="item-header">
+                                <span data-i18n="dess6" class="item-name">ШОКОЛАДНИЙ ФОНДАН</span>
+                                <span class="item-price">290</span>
+                            </div>
+                            <div class="item-description">
+
+                            </div>
+                        </div>
+
+                        <div class="menu-item">
+                            <div class="item-header">
+                                <span data-i18n="dess4" class="item-name">КРЕМ-БРЮЛЕ З ЮЗУ</span>
+                                <span class="item-price">270</span>
+                            </div>
+                            <div class="item-description">
+
+                            </div>
+                        </div>
+
+                        <div class="menu-item">
+                            <div class="item-header">
+                                <span data-i18n="dess7" class="item-name">СОРБЕТ ЛАЙМ</span>
                                 <span class="item-price">240</span>
                             </div>
                             <div class="item-description">
@@ -1061,37 +1086,7 @@
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">КРЕМ-БРЮЛЕ З ЮЗУ</span>
-                                <span class="item-price">250</span>
-                            </div>
-                            <div class="item-description">
-
-                            </div>
-                        </div>
-
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">ЯБЛУЧНИЙ ТАРТ</span>
-                                <span class="item-price">380</span>
-                            </div>
-                            <div class="item-description">
-
-                            </div>
-                        </div>
-
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">ШОКОЛАДНИЙ ФОНДАН</span>
-                                <span class="item-price">280</span>
-                            </div>
-                            <div class="item-description">
-
-                            </div>
-                        </div>
-
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">СОРБЕТ ЛАЙМ</span>
+                                <span data-i18n="dess8" class="item-name">СОРБЕТ МАНГО</span>
                                 <span class="item-price">240</span>
                             </div>
                             <div class="item-description">
@@ -1101,7 +1096,7 @@
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">СОРБЕТ МАНГО</span>
+                                <span data-i18n="dess9" class="item-name">СОРБЕТ ЯГІДНИЙ</span>
                                 <span class="item-price">240</span>
                             </div>
                             <div class="item-description">
@@ -1111,21 +1106,14 @@
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">СОРБЕТ ЯГІДНИЙ</span>
-                                <span class="item-price">240</span>
-                            </div>
-                            <div class="item-description">
-
-                            </div>
-                        </div>
-
-                        <div class="menu-item">
-                            <div class="item-header">
-                                <span class="item-name">МОРОЗИВО В АСОРТИМЕНТІ</span>
+                                <span data-i18n="dess10" class="item-name">МОРОЗИВО В АСОРТИМЕНТІ</span>
                                 <span class="item-price">150/170</span>
                             </div>
                             <div class="item-description">
 
+                            </div>
+                            <div class="item-description_white">
+                                ----------------------------------------------------------------------------------------------------------------------------------------------
                             </div>
                         </div>
 
@@ -1135,11 +1123,11 @@
                     </div>
 
                     <div class="menu-section" id="19">
-                        <div class="menu-title">ЦУКЕРКИ</div>
+                        <div data-i18n="candie0" class="menu-title">ЦУКЕРКИ</div>
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">РОЯЛТІН</span>
+                                <span data-i18n="candie1" class="item-name">РОЯЛТІН</span>
                                 <span class="item-price">85</span>
                             </div>
                             <div class="item-description"></div>
@@ -1147,7 +1135,7 @@
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">ВИШНЯ В ШОКОЛАДІ </span>
+                                <span data-i18n="candie2" class="item-name">ВИШНЯ В ШОКОЛАДІ </span>
                                 <span class="item-price">85</span>
                             </div>
                             <div class="item-description"></div>
@@ -1155,7 +1143,7 @@
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">ПРАЛІНЕ З ФУНДУКОМ</span>
+                                <span data-i18n="candie3" class="item-name">ПРАЛІНЕ З ФУНДУКОМ</span>
                                 <span class="item-price">85</span>
                             </div>
                             <div class="item-description">
@@ -1165,7 +1153,7 @@
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">БАМБУК</span>
+                                <span data-i18n="candie4" class="item-name">БАМБУК</span>
                                 <span class="item-price">115</span>
                             </div>
                             <div class="item-description">
@@ -1175,7 +1163,7 @@
 
                         <div class="menu-item">
                             <div class="item-header">
-                                <span class="item-name">ДУБАЙСЬКИЙ ШОКОЛАД</span>
+                                <span data-i18n="candie5" class="item-name">ДУБАЙСЬКИЙ ШОКОЛАД</span>
                                 <span class="item-price">95</span>
                             </div>
                             <div class="item-description_white">
@@ -1197,14 +1185,14 @@
                         <li class="item-info ">
                             <span class="info-item-icon _icon-time"></span>
                             <div class="info-item-block">
-                                <span class="info-item-name">Робочiй час:</span>
+                                <span data-i18n="work1" class="info-item-name">Робочiй час:</span>
                                 <span class="info-item-text">12:00 - 23:00</span>
                             </div>
                         </li>
                         <li class="item-info ">
                             <span class="info-item-icon _icon-map"></span>
                             <div class="info-item-block">
-                                <a class="info-item-name">Адреса:</a>
+                                <a data-i18n="add1" class="info-item-name">Адреса:</a>
                                 <a href="https://maps.app.goo.gl/bfujovF9gzjpHCFz9" class="info-item-text">Французський
                                     бульвар,
                                     54/23</a>
@@ -1213,7 +1201,7 @@
                         <li class="item-info ">
                             <span class="info-item-icon _icon-tel"></span>
                             <div class="info-item-block">
-                                <a class="info-item-name ">Телефон:</a>
+                                <a data-i18n="phone1" class="info-item-name ">Телефон:</a>
                                 <a href="tel:+380674845344" class="info-item-text">+380674845344</a>
                             </div>
                         </li>
@@ -1223,220 +1211,222 @@
     </div>
 
 
-    <div class="modal-overlay" id="dishModal">
-        <div class="modal-content">
-            <button class="modal-close">&times;</button>
-            <img id="modal-img" src="" alt="" class="modal-image">
-            <div class="modal-info">
-                <h2 id="modal-name"></h2>
-                <p id="modal-description"></p>
-                <p class="modal-price"><span id="modal-price"></span> грн</p>
+        <div class="modal-overlay" id="dishModal">
+            <div class="modal-content">
+                <button class="modal-close">&times;</button>
+                <img id="modal-img" src="" alt="" class="modal-image">
+                <div class="modal-info">
+                    <h2 id="modal-name"></h2>
+                    <p id="modal-description"></p>
+                    <p class="modal-price"><span id="modal-price"></span> грн</p>
+                </div>
             </div>
         </div>
-    </div>
+        
+        
+        
+        
+        <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+        <script src="script.js"></script>
+        <script src="lang.js"></script>
+        
+        <script src="/config.js"></script>
+        <script src="/assistant-widget.js"></script>
+        
+        <script src="https://unpkg.com/@rive-app/canvas@2.33.3"></script>
+        <script>
+            // Wait for DOM to be ready
+            document.addEventListener('DOMContentLoaded', function () {
+                const observer = new MutationObserver((mutations, obs) => {
+                    // Check if canvas element exists
+                    const canvas = document.getElementById('canvas-rive');
+                    if (canvas) {
+                        // Stop observing once we find the canvas
+                        obs.disconnect();
 
+                        // Initialize Rive after a small delay to ensure canvas is ready
+                        setTimeout(() => {
+                            initRiveAnimation();
+                        }, 100);
+                    }
+                });
 
+                // Start observing the document for changes
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
 
-
-    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
-    <script src="script.js"></script>
-
-
-<script src="/config.js"></script>
-<script src="/assistant-widget.js"></script>
-
-    <script src="https://unpkg.com/@rive-app/canvas@2.33.3"></script>
-    <script>
-        // Wait for DOM to be ready
-        document.addEventListener('DOMContentLoaded', function () {
-            const observer = new MutationObserver((mutations, obs) => {
-                // Check if canvas element exists
-                const canvas = document.getElementById('canvas-rive');
-                if (canvas) {
-                    // Stop observing once we find the canvas
-                    obs.disconnect();
-
-                    // Initialize Rive after a small delay to ensure canvas is ready
+                // Also check immediately in case it's already loaded
+                const existingCanvas = document.getElementById('canvas-rive');
+                if (existingCanvas) {
+                    observer.disconnect();
                     setTimeout(() => {
                         initRiveAnimation();
                     }, 100);
                 }
             });
 
-            // Start observing the document for changes
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
+            function initRiveAnimation() {
+                console.log('Initializing Rive animation...');
 
-            // Also check immediately in case it's already loaded
-            const existingCanvas = document.getElementById('canvas-rive');
-            if (existingCanvas) {
-                observer.disconnect();
-                setTimeout(() => {
-                    initRiveAnimation();
-                }, 100);
-            }
-        });
+                const r = new rive.Rive({
+                    src: "./bubble.riv",
+                    canvas: document.getElementById("canvas-rive"),
+                    autoplay: true,
+                    artboard: "Artboard",
+                    stateMachines: "State Machine 1",
+                    autoBind: true,
+                    assetLoader: (asset, bytes) => {
+                        console.log("Asset detected:", {
+                            name: asset.name,
+                            isImage: asset.isImage,
+                            fileExtension: asset.fileExtension
+                        });
 
-        function initRiveAnimation() {
-            console.log('Initializing Rive animation...');
-
-            const r = new rive.Rive({
-                src: "./bubble.riv",
-                canvas: document.getElementById("canvas-rive"),
-                autoplay: true,
-                artboard: "Artboard",
-                stateMachines: "State Machine 1",
-                autoBind: true,
-                assetLoader: (asset, bytes) => {
-                    console.log("Asset detected:", {
-                        name: asset.name,
-                        isImage: asset.isImage,
-                        fileExtension: asset.fileExtension
-                    });
-
-                    // If asset is already embedded or hosted, let runtime handle it
-                    if (asset.cdnUuid.length > 0 || bytes.length > 0) {
-                        return false;
-                    }
-
-                    // Handle referenced images
-                    if (asset.isImage) {
-                        // Map asset names to your local image files
-                        const imageMap = {
-                            "logo-main": "./img/Vector.png",
-                            "logo-2": "./img/bill.png",
-                            "logo-3": "./img/waiter.png",
-                            // Add more mappings as needed
-                        };
-
-                        const imagePath = imageMap[asset.name];
-
-                        if (imagePath) {
-                            fetch(imagePath).then(async (res) => {
-                                const imageData = await res.arrayBuffer();
-                                const image = await rive.decodeImage(new Uint8Array(imageData));
-                                asset.setRenderImage(image);
-
-                                // Clean up when done to avoid memory leaks
-                                // image.unref(); // Uncomment if needed
-                            }).catch(err => {
-                                console.error(`Failed to load image: ${imagePath}`, err);
-                            });
-                            return true; // We're handling this asset
+                        // If asset is already embedded or hosted, let runtime handle it
+                        if (asset.cdnUuid.length > 0 || bytes.length > 0) {
+                            return false;
                         }
-                    }
 
-                    return false; // Let runtime handle other assets
-                },
+                        // Handle referenced images
+                        if (asset.isImage) {
+                            // Map asset names to your local image files
+                            const imageMap = {
+                                "logo-main": "./img/Vector.png",
+                                "logo-2": "./img/bill.png",
+                                "logo-3": "./img/waiter.png",
+                                // Add more mappings as needed
+                            };
 
+                            const imagePath = imageMap[asset.name];
 
-                onLoad: () => {
-                   // r.resizeDrawingSurfaceToCanvas();
-                    let vmi = r.viewModelInstance;
+                            if (imagePath) {
+                                fetch(imagePath).then(async (res) => {
+                                    const imageData = await res.arrayBuffer();
+                                    const image = await rive.decodeImage(new Uint8Array(imageData));
+                                    asset.setRenderImage(image);
 
-                    const booleanShowLogoProperty = vmi.boolean("showLogo");
-                    booleanShowLogoProperty.value = true;
+                                    // Clean up when done to avoid memory leaks
+                                    // image.unref(); // Uncomment if needed
+                                }).catch(err => {
+                                    console.error(`Failed to load image: ${imagePath}`, err);
+                                });
+                                return true; // We're handling this asset
+                            }
+                        }
 
-                    const triggerEffectProperty = vmi.trigger("effect");
-                    triggerEffectProperty.trigger();
-                    const triggerClickMainProperty = vmi.trigger("clickMain");
-                    // Observe
-                    triggerClickMainProperty.on((event) => {
-                        setTimeout(function () {
-                            const chat = document.querySelector('.aiw-chat');
-                            const wasOpen = chat.style.display !== "none";
-                            console.log("Chat was open:", wasOpen);
-                            toggleChat(!wasOpen);
-                        }, 500);
-                    });
-
-
-                    const triggerClickLeftProperty = vmi.trigger("clickLeft");
-                    // Observe
-                    triggerClickLeftProperty.on((event) => {
-                        setTimeout(function () {
-                            openQuickAction("call_waiter");
-                        }, 500);
-                    });
-
-                    const triggerClickRightProperty = vmi.trigger("clickRight");
-                    // Observe
-                    triggerClickRightProperty.on((event) => {
-                        setTimeout(function () {
-                            openQuickAction("request_bill");
-                        }, 500);
-                    });
+                        return false; // Let runtime handle other assets
+                    },
 
 
-                    //const viewModel = file.viewModelByName("View Model");
-                    //const vmiBlank = viewModel.instance();
+                    onLoad: () => {
+                        // r.resizeDrawingSurfaceToCanvas();
+                        let vmi = r.viewModelInstance;
+
+                        const booleanShowLogoProperty = vmi.boolean("showLogo");
+                        booleanShowLogoProperty.value = true;
+
+                        const triggerEffectProperty = vmi.trigger("effect");
+                        triggerEffectProperty.trigger();
+                        const triggerClickMainProperty = vmi.trigger("clickMain");
+                        // Observe
+                        triggerClickMainProperty.on((event) => {
+                            setTimeout(function () {
+                                const chat = document.querySelector('.aiw-chat');
+                                const wasOpen = chat.style.display !== "none";
+                                console.log("Chat was open:", wasOpen);
+                                toggleChat(!wasOpen);
+                            }, 500);
+                        });
 
 
-                    /*
-                                        // Get all inputs from the state machine
-                                        const inputs = r.stateMachineInputs("State Machine 1");
-                    
-                                        // Log available inputs for debugging
-                                        console.log("Available inputs:", inputs.map(i => ({ name: i.name, type: i.type })));
-                    
-                                        // Find trigger inputs by name
-                                        // Replace these names with your actual trigger input names from Rive
-                                        //const trigger1Input = inputs.find(i => i.name === "effect");
-                    
-                                        // Store the Rive instance globally
-                                        window.riveAnimation = {
-                                            instance: r,
-                                            inputs: inputs,
-                                            triggerEffect: function () {
-                                                const triggerInput = inputs.find(i => i.name === "effect");
-                                                if (triggerInput) {
-                                                    triggerInput.fire();
-                                                    console.log("Effect triggered");
+                        const triggerClickLeftProperty = vmi.trigger("clickLeft");
+                        // Observe
+                        triggerClickLeftProperty.on((event) => {
+                            setTimeout(function () {
+                                openQuickAction("call_waiter");
+                            }, 500);
+                        });
+
+                        const triggerClickRightProperty = vmi.trigger("clickRight");
+                        // Observe
+                        triggerClickRightProperty.on((event) => {
+                            setTimeout(function () {
+                                openQuickAction("request_bill");
+                            }, 500);
+                        });
+
+
+                        //const viewModel = file.viewModelByName("View Model");
+                        //const vmiBlank = viewModel.instance();
+
+
+                        /*
+                                            // Get all inputs from the state machine
+                                            const inputs = r.stateMachineInputs("State Machine 1");
+                        
+                                            // Log available inputs for debugging
+                                            console.log("Available inputs:", inputs.map(i => ({ name: i.name, type: i.type })));
+                        
+                                            // Find trigger inputs by name
+                                            // Replace these names with your actual trigger input names from Rive
+                                            //const trigger1Input = inputs.find(i => i.name === "effect");
+                        
+                                            // Store the Rive instance globally
+                                            window.riveAnimation = {
+                                                instance: r,
+                                                inputs: inputs,
+                                                triggerEffect: function () {
+                                                    const triggerInput = inputs.find(i => i.name === "effect");
+                                                    if (triggerInput) {
+                                                        triggerInput.fire();
+                                                        console.log("Effect triggered");
+                                                    }
                                                 }
-                                            }
-                                        };
-                    
-                    
-                    
-                                        const booleanInput = inputs.find(i => i.name === "show_logo");
-                                        booleanInput.value = true;
-                    
-                    
-                    
-                                        /*
-                                                        // Attach button click handlers
-                                                        document.getElementById("effect").onclick = () => {
-                                                            if (trigger1Input) {
-                                                                trigger1Input.fire();
-                                                                console.log("Trigger 1 fired");
-                                                            } else {
-                                                                console.warn("Trigger1 input not found in state machine");
-                                                            }
-                    
-                    
-                                                            
-                                                        };
-                                        
-                                        
-                                                        // Attach checkbox change handler for boolean input
-                                                        document.getElementById("booleanToggle").onchange = (e) => {
-                                                            if (booleanInput) {
-                                                                booleanInput.value = e.target.checked;
-                                                                console.log("Boolean set to:", e.target.checked);
-                                                            } else {
-                                                                console.warn("Boolean1 input not found in state machine");
-                                                            }
-                                                        };
-                                        */
-                },
-            });
-        }
-    </script>
+                                            };
+                        
+                        
+                        
+                                            const booleanInput = inputs.find(i => i.name === "show_logo");
+                                            booleanInput.value = true;
+                        
+                        
+                        
+                                            /*
+                                                            // Attach button click handlers
+                                                            document.getElementById("effect").onclick = () => {
+                                                                if (trigger1Input) {
+                                                                    trigger1Input.fire();
+                                                                    console.log("Trigger 1 fired");
+                                                                } else {
+                                                                    console.warn("Trigger1 input not found in state machine");
+                                                                }
+                        
+                        
+                                                                
+                                                            };
+                                            
+                                            
+                                                            // Attach checkbox change handler for boolean input
+                                                            document.getElementById("booleanToggle").onchange = (e) => {
+                                                                if (booleanInput) {
+                                                                    booleanInput.value = e.target.checked;
+                                                                    console.log("Boolean set to:", e.target.checked);
+                                                                } else {
+                                                                    console.warn("Boolean1 input not found in state machine");
+                                                                }
+                                                            };
+                                            */
+                    },
+                });
+            }
+        </script>
+
+
+
 
 
 </body>
-
 
 </html>
