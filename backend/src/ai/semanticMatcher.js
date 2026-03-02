@@ -520,7 +520,6 @@ async function matchByIngredients({ lowerText, restaurantId }) {
 
 export async function matchDishMentionToMenu({ mentionText, locale, restaurantId }) {
   const usedLocale = (locale || 'en').toLowerCase();
-
   const text = (mentionText || '').trim();
 
   if (!text || !restaurantId) {
@@ -532,45 +531,52 @@ export async function matchDishMentionToMenu({ mentionText, locale, restaurantId
   }
 
   const lowerText = text.toLowerCase();
-  // 1) СНАЧАЛА Synonym Graph (работает по "сырому" тексту на любом языке)
-  const synonymMatch = await matchBySynonymGraph({
-    lowerText, restaurantId, locale: usedLocale
-  });
 
-  if (synonymMatch) {
-    return synonymMatch;
-  }
-
-  // 1.5) Then lexical name match (exact/contains/fuzzy).
-  // This prevents cases like "хочу фритц колу" → лимонад,
-  // and "хочу колу" → крабовые роллы.
-  const nameMatch = await matchByName({ mentionText: text, restaurantId });
-  if (nameMatch) {
-    return nameMatch;
-  }
-
-  // 2) Потом эмбеддинги — но сначала переводим текст в EN
   let textForEmbeddings = text;
-  const sourceLang = locale; // сюда ты уже пробрасываешь meta.language из NLU
-
+  const sourceLang = locale;
   try {
     textForEmbeddings = await translateToEnglish(text, sourceLang);
   } catch (err) {
     console.error('[semanticMatcher] translateToEnglish error', err);
     textForEmbeddings = text;
   }
+  const lowerTranslated = String(textForEmbeddings || '').toLowerCase();
 
-  // 2) Embeddings. If the query looks like a drink request, restrict candidates to drink items first.
-  const drinkish = isDrinkishQuery(text);
+  const synonymMatch = await matchBySynonymGraph({
+    lowerText,
+    restaurantId,
+    locale: usedLocale,
+  });
+  if (synonymMatch) return synonymMatch;
+
+  if (lowerTranslated && lowerTranslated !== lowerText) {
+    const synonymTranslated = await matchBySynonymGraph({
+      lowerText: lowerTranslated,
+      restaurantId,
+      locale: 'en',
+    });
+    if (synonymTranslated) return synonymTranslated;
+  }
+
+  const nameMatch = await matchByName({ mentionText: text, restaurantId });
+  if (nameMatch) return nameMatch;
+
+  if (textForEmbeddings && textForEmbeddings !== text) {
+    const nameMatchTranslated = await matchByName({
+      mentionText: textForEmbeddings,
+      restaurantId,
+    });
+    if (nameMatchTranslated) return nameMatchTranslated;
+  }
+
+  const drinkish = isDrinkishQuery(text) || isDrinkishQuery(textForEmbeddings);
   const embMatch = await matchByEmbeddings({
     text: textForEmbeddings,
-    // ВАЖНО: эмбеддинги теперь только EN, явно указываем 'en'
     locale: 'en',
     restaurantId,
     onlyDrinkItems: drinkish,
   });
 
-  // If drinkish search didn't find anything, retry full menu (better than returning null)
   let embMatchAny = embMatch;
   if (!embMatchAny && drinkish) {
     embMatchAny = await matchByEmbeddings({
@@ -585,15 +591,18 @@ export async function matchDishMentionToMenu({ mentionText, locale, restaurantId
     return embMatchAny;
   }
 
-  // 3) Ingredient fallback — продолжает работать по lowerText (любые языки)
   const ingredientMatch = await matchByIngredients({
     lowerText,
     restaurantId,
   });
+  if (ingredientMatch) return ingredientMatch;
 
-
-  if (ingredientMatch) {
-    return ingredientMatch;
+  if (lowerTranslated && lowerTranslated !== lowerText) {
+    const ingredientTranslated = await matchByIngredients({
+      lowerText: lowerTranslated,
+      restaurantId,
+    });
+    if (ingredientTranslated) return ingredientTranslated;
   }
 
   if (embMatchAny) {
@@ -610,7 +619,6 @@ export async function matchDishMentionToMenu({ mentionText, locale, restaurantId
     source: 'not_found',
   };
 }
-
 
 // Обёртка для совместимости, если вдруг где-то уже вызывается semanticMatch
 export async function semanticMatch(text, context = {}) {
@@ -749,7 +757,5 @@ export async function suggestMenuByText({ text, locale, restaurantId, limit = 6 
 
   return finalList;
 }
-
-
 
 

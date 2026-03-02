@@ -11,6 +11,7 @@ import {
   getMenuItemsByCustomCategory,
 } from '../models/customCategoryModel.js';
 import { suggestMenuByText } from '../ai/semanticMatcher.js';
+import { translateToEnglish } from '../ai/translationService.js';
 import { query } from '../db.js';
 
 // --- Preference keywords → tags (admin-managed standard tags) ---
@@ -226,11 +227,19 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
 
   const trimmed = String(query || '').trim();
   if (!trimmed) return [];
+  const safeLimit = Number(limit) || 6;
+
+  let translatedQuery = '';
+  try {
+    translatedQuery = String(await translateToEnglish(trimmed, locale) || '').trim();
+  } catch (_) {
+    translatedQuery = '';
+  }
 
   // 0) Tags-first for preference requests (spicy/sweet/drink/snack/main/etc)
   const preferredTags = detectPreferredTags(trimmed);
   if (preferredTags.length) {
-    const tagRows = await pickByTags(restaurantId, preferredTags, limit);
+    const tagRows = await pickByTags(restaurantId, preferredTags, safeLimit);
     if (tagRows.length) {
       const itemCodes = tagRows.map((r) => r.item_code).filter(Boolean);
       const basics = await getMenuItemsBasicByCodes(restaurantId, itemCodes);
@@ -256,7 +265,7 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
     const categoryRows = await getMenuItemsByCustomCategory({
       restaurantId,
       categoryId: mentionedCategory.id,
-      limit: Number(limit) || 6,
+      limit: safeLimit,
     });
     if (Array.isArray(categoryRows) && categoryRows.length) {
       return categoryRows.map((r) => ({
@@ -272,7 +281,7 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
   const lexicalRows = await pickByIngredientsOrName(
     restaurantId,
     trimmed,
-    Number(limit) || 6
+    safeLimit
   );
   if (lexicalRows.length) {
     return lexicalRows.map((r) => ({
@@ -283,12 +292,72 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
     }));
   }
 
+  // 0.9) Multilingual fallback:
+  // If original query was in another language, rerun deterministic category/lexical paths on translated EN.
+  if (translatedQuery && translatedQuery.toLowerCase() !== trimmed.toLowerCase()) {
+    const preferredTagsTranslated = detectPreferredTags(translatedQuery);
+    if (preferredTagsTranslated.length) {
+      const tagRowsTranslated = await pickByTags(restaurantId, preferredTagsTranslated, safeLimit);
+      if (tagRowsTranslated.length) {
+        const itemCodes = tagRowsTranslated.map((r) => r.item_code).filter(Boolean);
+        const basics = await getMenuItemsBasicByCodes(restaurantId, itemCodes);
+        const basicsByCode = new Map(basics.map((row) => [row.item_code, row]));
+
+        return tagRowsTranslated.map((r) => {
+          const base = basicsByCode.get(r.item_code);
+          const photos = Array.isArray(base?.photos) ? base.photos : [];
+          const imageUrl = photos.length ? photos[0] : null;
+          return {
+            item_code: r.item_code,
+            name: r.name_any || r.item_code,
+            price: base?.base_price ?? null,
+            image_url: imageUrl,
+          };
+        });
+      }
+    }
+
+    const mentionedCategoryTranslated = await findCustomCategoryByMention(
+      restaurantId,
+      translatedQuery
+    );
+    if (mentionedCategoryTranslated?.id) {
+      const categoryRowsTranslated = await getMenuItemsByCustomCategory({
+        restaurantId,
+        categoryId: mentionedCategoryTranslated.id,
+        limit: safeLimit,
+      });
+      if (Array.isArray(categoryRowsTranslated) && categoryRowsTranslated.length) {
+        return categoryRowsTranslated.map((r) => ({
+          item_code: r.item_code,
+          name: r.name || r.item_code,
+          price: r.price ?? null,
+          image_url: r.image_url || null,
+        }));
+      }
+    }
+
+    const lexicalRowsTranslated = await pickByIngredientsOrName(
+      restaurantId,
+      translatedQuery,
+      safeLimit
+    );
+    if (lexicalRowsTranslated.length) {
+      return lexicalRowsTranslated.map((r) => ({
+        item_code: r.item_code,
+        name: r.name_any || r.item_code,
+        price: r.base_price ?? null,
+        image_url: r.image_url || null,
+      }));
+    }
+  }
+
   // 1) Embeddings-based suggestions
   const matches = await suggestMenuByText({
     text: trimmed,
     locale,
     restaurantId,
-    limit,
+    limit: safeLimit,
   });
 
   if (!matches.length) return [];

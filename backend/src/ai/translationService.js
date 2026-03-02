@@ -27,7 +27,7 @@ export async function translateToEnglish(text, sourceLang) {
   }
 
   const systemPrompt =
-    'You are a translation engine. Detect the user language if needed and translate everything into English. Return ONLY the translated text without any explanations.';
+    'You translate restaurant user queries into concise English for menu search. Preserve food entities and normalize transliterated dish words to canonical culinary terms when obvious (for example: rolls, sushi, sashimi, gunkan, temaki, soup, tuna, salmon, crab, shrimp). Return ONLY the translated query text.';
 
   const userPayload = sourceLang
     ? `Source language: ${sourceLang}\nText:\n${original}`

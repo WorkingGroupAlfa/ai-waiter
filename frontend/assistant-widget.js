@@ -3908,7 +3908,10 @@ if (shouldOpen) {
           "Content-Type": "application/json",
           "x-session-token": sessionToken,
         },
-        body: JSON.stringify({ text: message }),
+        body: JSON.stringify({
+          text: message,
+          client_language: USER_LOCALE || null,
+        }),
         credentials: "include",
       });
 
@@ -4010,7 +4013,10 @@ if (shouldOpen) {
           "Content-Type": "application/json",
           "x-session-token": sessionToken,
         },
-        body: JSON.stringify(operation),
+        body: JSON.stringify({
+          ...(operation || {}),
+          language: USER_LOCALE || null,
+        }),
       });
 
       if (!res.ok) {
