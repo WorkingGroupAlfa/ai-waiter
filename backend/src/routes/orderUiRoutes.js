@@ -13,6 +13,11 @@ import { getRestaurantSettings } from '../models/restaurantSettingsModel.js';
 import { computeTimeContext, DEFAULT_DAYPARTS } from '../services/restaurantSettingsService.js';
 import { getWeatherForRestaurant } from '../services/weatherService.js';
 import { loadPersona } from '../services/aiPersonaService.js';
+import {
+  getLastUpsellForSession,
+  setLastUpsellForSession,
+  clearLastUpsellForSession,
+} from '../services/dialogStateService.js';
 
 import { loadDeviceMemory } from '../ai/memoryService.js'; // если путь такой же как в dialogManager
 
@@ -21,6 +26,23 @@ export const orderUiRouter = express.Router();
 
 // Все эндпоинты требуют x-session-token
 orderUiRouter.use(sessionAuth);
+
+function normalizeMlMeta(raw) {
+  const src =
+    (raw && typeof raw === 'object'
+      ? raw.ml || raw.strategy || raw
+      : null) || {};
+
+  const strategy =
+    src.strategy || src.name || src.strategy_name || 'ml_bandit';
+  const model_version = src.model_version || src.modelVersion || 'heuristic_v1';
+  const epsilon = Number.isFinite(Number(src.epsilon))
+    ? Number(src.epsilon)
+    : null;
+  const picked_by = src.picked_by || src.pickedBy || null;
+
+  return { strategy, model_version, epsilon, picked_by };
+}
 
 /**
  * POST /api/v1/order/ui-update
@@ -58,6 +80,58 @@ const isAddLikeOp = (op) => {
 };
 
 // Пытаемся апселлить только если это добавление (или увеличение)
+// Track accept when user adds the last shown upsell via UI (+ button).
+try {
+  const lastUpsell = await getLastUpsellForSession(session.id);
+  const lastCode = String(lastUpsell?.last_upsell_code || '').trim().toUpperCase();
+  if (lastCode && orderDraft?.id) {
+    const acceptedViaUi = ops.some((op) => {
+      if (!isAddLikeOp(op)) return false;
+      const q = Number(op?.quantity);
+      if (Number.isFinite(q) && q <= 0) return false;
+      const code = String(op?.item_code || op?.code || '').trim().toUpperCase();
+      return Boolean(code) && code === lastCode;
+    });
+
+    if (acceptedViaUi) {
+      const mlAccepted = normalizeMlMeta({
+        strategy: lastUpsell?.last_upsell_strategy,
+        model_version: lastUpsell?.last_upsell_model_version,
+        epsilon: lastUpsell?.last_upsell_epsilon,
+        picked_by: lastUpsell?.last_upsell_picked_by,
+      });
+
+      await logEvent(
+        'upsell_accepted',
+        { session, deviceId: session.device_id },
+        {
+          restaurant_id: session.restaurant_id,
+          device_id: session.device_id,
+          session_id: session.id || null,
+          order_id: orderDraft.id,
+          upsell_event_id: lastUpsell?.last_upsell_event_id || null,
+          position_in_flow: lastUpsell?.last_upsell_position || null,
+          suggested_item_code: lastUpsell?.last_upsell_code || null,
+          suggested_item_name: lastUpsell?.last_upsell_item_name || lastUpsell?.last_upsell_code || null,
+          reason_code: lastUpsell?.last_upsell_reason_code || null,
+          language: lastUpsell?.last_upsell_language || payload?.language || 'en',
+          emotion: lastUpsell?.last_upsell_emotion || payload?.emotion || 'neutral',
+          ml: mlAccepted,
+          strategy: mlAccepted.strategy,
+          model_version: mlAccepted.model_version,
+          epsilon: mlAccepted.epsilon,
+          picked_by: mlAccepted.picked_by,
+          source: 'ui_update_add',
+        }
+      );
+
+      await clearLastUpsellForSession(session.id);
+    }
+  }
+} catch (e) {
+  console.error('[order/ui-update] upsell accept tracking failed:', e);
+}
+
 const shouldTryUpsell = ops.some(isAddLikeOp);
 
 if (shouldTryUpsell && orderDraft && orderDraft.status === 'draft') {
@@ -208,6 +282,69 @@ if (items.length) {
     text: upsellText,
     items, // ✅ теперь 2–3 карточки
   };
+
+  // Track shown in UI flow and persist it for future accept/reject linking.
+  const ml = normalizeMlMeta(upsellPack?.ml ?? upsellPack?.strategy ?? upsellPack);
+  const primaryCode = primary?.code || null;
+  const primaryName = primary?.name || primaryCode;
+  const primaryTop = top.find((c) => {
+    const cCode = String(c?.item_code || c?.itemCode || '').trim().toUpperCase();
+    return primaryCode && cCode === String(primaryCode).trim().toUpperCase();
+  }) || picked || null;
+  const reasonCode = primaryTop?.reason_code || null;
+
+  const orderSnapshot = {
+    item_codes: (orderDraft?.items || [])
+      .map((it) => it?.code || it?.item_code)
+      .filter(Boolean),
+    total_price:
+      typeof orderDraft?.totalAmount === 'number'
+        ? orderDraft.totalAmount
+        : parseFloat(orderDraft?.totalAmount || '0') || 0,
+  };
+
+  const shownEvent = await logEvent(
+    'upsell_shown',
+    { session, deviceId: deviceId ?? session.device_id },
+    {
+      restaurant_id: session.restaurant_id,
+      device_id: deviceId ?? session.device_id,
+      session_id: session.id || null,
+      order_id: orderDraft?.id || null,
+      suggested_item_code: primaryCode,
+      suggested_item_name: primaryName,
+      reason_code: reasonCode,
+      language,
+      emotion: emotionVal,
+      strategy: ml.strategy,
+      model_version: ml.model_version,
+      epsilon: ml.epsilon,
+      picked_by: ml.picked_by,
+      ml,
+      source: 'ui_update',
+      channel: 'ui',
+      top_candidates: top,
+      picked: picked || null,
+      order_snapshot: orderSnapshot,
+      upsell_text_localized: upsellText,
+    }
+  );
+
+  const prevLast = await getLastUpsellForSession(session.id);
+  const nextPosition = (Number(prevLast?.last_upsell_position) || 0) + 1;
+
+  await setLastUpsellForSession(session.id, {
+    itemCode: primaryCode,
+    itemName: primaryName,
+    textEn: upsellTextEn || null,
+    eventId: shownEvent?.id || null,
+    position: nextPosition,
+    strategy: ml.strategy,
+    modelVersion: ml.model_version,
+    reasonCode: reasonCode,
+    language,
+    emotion: emotionVal,
+  });
 }
 
   } catch (e) {
