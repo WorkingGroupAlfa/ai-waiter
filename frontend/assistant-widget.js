@@ -73,9 +73,6 @@
     try {
       if (localStorage.getItem(WELCOME_LS_KEY) === "1") return;
 
-      // Ставим сразу, чтобы не показать дважды при гонках
-      localStorage.setItem(WELCOME_LS_KEY, "1");
-
       const qs = new URLSearchParams({ client_language: USER_LOCALE });
       const res = await fetch(`${API_BASE}/chat/welcome?${qs.toString()}`, {
         method: "GET",
@@ -86,6 +83,7 @@
         appendWelcomeMessage(
           "Hi! I’m your AI waiter. Ask me about the menu, or tell me what you’d like to order.",
         );
+        localStorage.setItem(WELCOME_LS_KEY, "1");
         return;
       }
 
@@ -95,11 +93,13 @@
         "Hi! I’m your AI waiter. Ask me about the menu, or tell me what you’d like to order.";
 
       appendWelcomeMessage(text);
+      localStorage.setItem(WELCOME_LS_KEY, "1");
     } catch (e) {
       console.warn("[welcome] failed:", e);
       appendWelcomeMessage(
         "Hi! I’m your AI waiter. Ask me about the menu, or tell me what you’d like to order.",
       );
+      localStorage.setItem(WELCOME_LS_KEY, "1");
     }
   }
 
@@ -3621,27 +3621,24 @@ function unlockPageScroll() {
           : chat.style.display === "none";
 
       chat.style.display = shouldOpen ? "flex" : "none";
-      if (isMobile) {
-  if (shouldOpen) {
-    lockPageScroll();
-    applyMobileFullscreen(chat, true);
-  } else {
-    applyMobileFullscreen(chat, false);
-    unlockPageScroll();
-  }
-}
 
       const vv = window.visualViewport;
-const vw = vv ? vv.width : window.innerWidth;
+      const vw = vv ? vv.width : window.innerWidth;
 
-const isMobile =
-  (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-  vw <= 820; // запас, потому что WebView/scale может давать странные числа
+      const isMobile =
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        vw <= 820; // �����, ������ ��� WebView/scale ����� ������ �������� �����
 
-if (isMobile) {
-  if (shouldOpen) lockPageScroll();
-  else unlockPageScroll();
-}
+      if (isMobile) {
+        if (shouldOpen) {
+          lockPageScroll();
+          applyMobileFullscreen(chat, true);
+        } else {
+          applyMobileFullscreen(chat, false);
+          unlockPageScroll();
+        }
+      }
+
       // Init / cleanup mobile keyboard fix
 if (shouldOpen) {
   if (!kbFixCleanup) kbFixCleanup = bindMobileKeyboardFix(chat);
