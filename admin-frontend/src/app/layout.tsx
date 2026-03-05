@@ -27,6 +27,7 @@ export default function RootLayout({
                 Dashboard
               </a>
               <a href="/menu">Menu</a>
+              <a href="/menu/inactive">Inactive dishes</a>
               <a href="/custom-categories">Custom categories</a>
               <a href="/orders">Orders</a>
               <a href="/sessions">Sessions</a>

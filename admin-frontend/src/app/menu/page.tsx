@@ -1,24 +1,21 @@
-'use client';
+﻿'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { apiClient } from '../../lib/api';
 import { ensureAdminToken } from '../../lib/auth';
 
 const ASSETS_BASE_URL = (process.env.NEXT_PUBLIC_ASSETS_BASE_URL || '').replace(/\/$/, '');
+const RESTAURANT_ID = 'azuma_demo';
+const SHEET_UNASSIGNED = '__unassigned__';
 
 function normalizePhotoInput(raw: string): string {
   const v = (raw || '').trim();
   if (!v) return '';
-  if (/^https?:\/\//i.test(v)) return v;          // уже полный URL
-  if (!ASSETS_BASE_URL) return v;                 // если env не задан — оставим как есть
-
-  //  - "/img/41.webp" -> `${base}/img/41.webp`
-  //  - "img/41.webp"  -> `${base}/img/41.webp`
-  //  - "41.webp"      -> `${base}/img/41.webp`
+  if (/^https?:\/\//i.test(v)) return v;
+  if (!ASSETS_BASE_URL) return v;
   if (v.startsWith('/')) return `${ASSETS_BASE_URL}${v}`;
   if (v.startsWith('img/')) return `${ASSETS_BASE_URL}/${v}`;
   if (/^[\w.-]+\.(webp|png|jpe?g|gif|svg)$/i.test(v)) return `${ASSETS_BASE_URL}/img/${v}`;
-
   return `${ASSETS_BASE_URL}/${v}`;
 }
 
@@ -33,7 +30,6 @@ interface MenuItem {
   tags?: string[];
   custom_category_ids?: string[];
   is_active: boolean;
-  // возможные дополнительные поля, если backend их возвращает
   ingredients?: string[] | null;
   allergens?: string[] | null;
   photos?: string[] | null;
@@ -50,26 +46,16 @@ interface CustomCategory {
   sort_order: number;
 }
 
-const RESTAURANT_ID = 'azuma_demo';
-
-// --- Standard tags used by backend recommendations ---
-const TAG_OPTIONS = [
-  'spicy',
-  'sweet',
-  'salty',
-  'sour',
-  'drink',
-  'dessert',
-  'light',
-] as const;
-
-// --- Standard categories (shown in datalist) ---
+const TAG_OPTIONS = ['spicy', 'sweet', 'salty', 'sour', 'drink', 'dessert', 'light'] as const;
 const CATEGORY_OPTIONS = [
   { value: 'main', label: 'Main dish' },
   { value: 'snack', label: 'Snacks' },
   { value: 'drink', label: 'Drinks' },
   { value: 'dessert', label: 'Desserts' },
 ] as const;
+
+type SortKey = 'name' | 'price' | 'code';
+type SortDir = 'asc' | 'desc';
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -83,10 +69,14 @@ export default function MenuPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [selectedSheet, setSelectedSheet] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
   useEffect(() => {
     ensureAdminToken();
-    loadItems();
-    loadCustomCategories();
+    void Promise.all([loadItems(), loadCustomCategories()]);
   }, []);
 
   async function loadItems() {
@@ -96,8 +86,8 @@ export default function MenuPage() {
       const res = await apiClient.get('/menu/items', {
         params: { restaurant_id: RESTAURANT_ID, only_active: false },
       });
-      setItems(res.data.items || []);
-    } catch (err: any) {
+      setItems(Array.isArray(res.data?.items) ? res.data.items : []);
+    } catch (err) {
       console.error(err);
       setError('Failed to load menu items');
     } finally {
@@ -117,6 +107,81 @@ export default function MenuPage() {
     }
   }
 
+  const activeItems = useMemo(() => items.filter(i => i.is_active), [items]);
+
+  const sortedCategories = useMemo(
+    () =>
+      [...customCategories].sort((a, b) => {
+        const d = Number(a.sort_order || 0) - Number(b.sort_order || 0);
+        if (d !== 0) return d;
+        return String(a.name_ua || a.slug || '').localeCompare(String(b.name_ua || b.slug || ''));
+      }),
+    [customCategories]
+  );
+
+  const hasUnassigned = useMemo(
+    () =>
+      activeItems.some(
+        i => !Array.isArray(i.custom_category_ids) || i.custom_category_ids.length === 0
+      ),
+    [activeItems]
+  );
+
+  const sheetOptions = useMemo(() => {
+    const arr = sortedCategories.map(c => ({ value: c.id, label: c.name_ua || c.slug }));
+    if (hasUnassigned) {
+      arr.push({ value: SHEET_UNASSIGNED, label: 'Unassigned' });
+    }
+    return arr;
+  }, [sortedCategories, hasUnassigned]);
+
+  useEffect(() => {
+    if (!sheetOptions.length) {
+      setSelectedSheet('');
+      return;
+    }
+    if (!selectedSheet || !sheetOptions.some(s => s.value === selectedSheet)) {
+      setSelectedSheet(sheetOptions[0].value);
+    }
+  }, [sheetOptions, selectedSheet]);
+
+  const selectedSheetLabel =
+    sheetOptions.find(s => s.value === selectedSheet)?.label || 'Select category';
+
+  const visibleItems = useMemo(() => {
+    let rows = [...activeItems];
+
+    if (selectedSheet === SHEET_UNASSIGNED) {
+      rows = rows.filter(i => !Array.isArray(i.custom_category_ids) || i.custom_category_ids.length === 0);
+    } else if (selectedSheet) {
+      rows = rows.filter(i => Array.isArray(i.custom_category_ids) && i.custom_category_ids.includes(selectedSheet));
+    }
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(i => {
+        const code = String(i.item_code || '').toLowerCase();
+        const ua = String(i.name_ua || '').toLowerCase();
+        const en = String(i.name_en || '').toLowerCase();
+        return code.includes(q) || ua.includes(q) || en.includes(q);
+      });
+    }
+
+    rows.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'price') {
+        cmp = Number(a.base_price || 0) - Number(b.base_price || 0);
+      } else if (sortKey === 'code') {
+        cmp = String(a.item_code || '').localeCompare(String(b.item_code || ''));
+      } else {
+        cmp = String(a.name_ua || a.name_en || '').localeCompare(String(b.name_ua || b.name_en || ''));
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return rows;
+  }, [activeItems, selectedSheet, search, sortKey, sortDir]);
+
   function startCreate() {
     setEditing(null);
     setForm({
@@ -128,7 +193,7 @@ export default function MenuPage() {
       base_price: 0,
       category: '',
       tags: [],
-      custom_category_ids: [],
+      custom_category_ids: selectedSheet && selectedSheet !== SHEET_UNASSIGNED ? [selectedSheet] : [],
       is_active: true,
     });
     setIngredientsText('');
@@ -146,14 +211,10 @@ export default function MenuPage() {
       name_en: item.name_en || '',
       base_price: item.base_price,
       category: item.category || '',
-      tags: Array.isArray((item as any).tags) ? (item as any).tags : [],
-      custom_category_ids: Array.isArray((item as any).custom_category_ids)
-        ? (item as any).custom_category_ids
-        : [],
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      custom_category_ids: Array.isArray(item.custom_category_ids) ? item.custom_category_ids : [],
       is_active: item.is_active,
     });
-
-    // преобразуем массивы в строку "a, b, c"
     setIngredientsText((item.ingredients || []).join(', '));
     setAllergensText((item.allergens || []).join(', '));
     setPhotosText((item.photos || []).join(', '));
@@ -165,19 +226,13 @@ export default function MenuPage() {
 
   function toggleTag(tag: string) {
     const current = Array.isArray(form.tags) ? form.tags : [];
-    const next = current.includes(tag)
-      ? current.filter(t => t !== tag)
-      : [...current, tag];
+    const next = current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag];
     setForm(prev => ({ ...prev, tags: next as any }));
   }
 
   function toggleCustomCategory(id: string) {
-    const current = Array.isArray(form.custom_category_ids)
-      ? form.custom_category_ids
-      : [];
-    const next = current.includes(id)
-      ? current.filter(x => x !== id)
-      : [...current, id];
+    const current = Array.isArray(form.custom_category_ids) ? form.custom_category_ids : [];
+    const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
     setForm(prev => ({ ...prev, custom_category_ids: next as any }));
   }
 
@@ -192,15 +247,16 @@ export default function MenuPage() {
     e.preventDefault();
     setSaving(true);
     setError(null);
+
     try {
       if (!form.item_code || !form.name_ua) {
-        setError('item_code и name_ua обязательны');
+        setError('item_code and name_ua are required');
         setSaving(false);
         return;
       }
 
       const payload = {
-        id: form.id, // может быть undefined для создания
+        id: form.id,
         restaurant_id: RESTAURANT_ID,
         item_code: form.item_code,
         name_ua: form.name_ua,
@@ -208,11 +264,8 @@ export default function MenuPage() {
         base_price: Number(form.base_price || 0),
         category: form.category || '',
         tags: Array.isArray(form.tags) ? form.tags : [],
-        custom_category_ids: Array.isArray(form.custom_category_ids)
-          ? form.custom_category_ids
-          : [],
+        custom_category_ids: Array.isArray(form.custom_category_ids) ? form.custom_category_ids : [],
         is_active: form.is_active ?? true,
-        // новые поля — строки → массивы строк
         ingredients: parseCommaList(ingredientsText),
         allergens: parseCommaList(allergensText),
         photos: parseCommaList(photosText).map(normalizePhotoInput).filter(Boolean),
@@ -220,10 +273,13 @@ export default function MenuPage() {
 
       await apiClient.post('/admin/menu/items', payload);
       await loadItems();
-      setSaving(false);
-    } catch (err: any) {
+      if (!form.id) {
+        startCreate();
+      }
+    } catch (err) {
       console.error(err);
       setError('Failed to save menu item');
+    } finally {
       setSaving(false);
     }
   }
@@ -237,10 +293,7 @@ export default function MenuPage() {
       await apiClient.delete(`/admin/menu/items/${item.id}`, {
         params: { restaurant_id: RESTAURANT_ID },
       });
-
       await loadItems();
-
-      // If editing this item — reset form
       if (editing?.id === item.id) {
         setEditing(null);
         startCreate();
@@ -251,12 +304,11 @@ export default function MenuPage() {
     }
   }
 
-    // Inline photo URL update (no need to open Edit)
   async function savePhotoInline(item: MenuItem, url: string) {
     try {
       setError(null);
-          const normalized = normalizePhotoInput(url);
-    const photos = normalized ? [normalized] : [];
+      const normalized = normalizePhotoInput(url);
+      const photos = normalized ? [normalized] : [];
 
       const payload = {
         id: item.id,
@@ -267,9 +319,7 @@ export default function MenuPage() {
         base_price: Number(item.base_price || 0),
         category: item.category || '',
         tags: Array.isArray(item.tags) ? item.tags : [],
-        custom_category_ids: Array.isArray(item.custom_category_ids)
-          ? item.custom_category_ids
-          : [],
+        custom_category_ids: Array.isArray(item.custom_category_ids) ? item.custom_category_ids : [],
         is_active: item.is_active ?? true,
         ingredients: Array.isArray(item.ingredients) ? item.ingredients : [],
         allergens: Array.isArray(item.allergens) ? item.allergens : [],
@@ -277,11 +327,7 @@ export default function MenuPage() {
       };
 
       await apiClient.post('/admin/menu/items', payload);
-
-      // optimistic update
-      setItems(prev =>
-        prev.map(it => (it.id === item.id ? { ...it, photos } : it))
-      );
+      setItems(prev => prev.map(it => (it.id === item.id ? { ...it, photos } : it)));
     } catch (err) {
       console.error(err);
       setError('Failed to save photo URL');
@@ -303,176 +349,170 @@ export default function MenuPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h1 className="text-2xl font-semibold mb-2" style={{ margin: 0 }}>
-            Menu
-          </h1>
+          <h1 className="text-2xl font-semibold mb-2" style={{ margin: 0 }}>Menu</h1>
           <div className="text-sm text-gray-600" style={{ marginTop: '0.25rem' }}>
             Restaurant: <span className="font-mono">{RESTAURANT_ID}</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button className="btn btn-primary" onClick={startCreate}>
-            + New item
-          </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <a className="btn btn-ghost" href="/menu/inactive">Inactive dishes</a>
+          <button className="btn btn-primary" onClick={startCreate}>+ New item</button>
         </div>
       </div>
 
       {error && <div className="text-red-500 text-sm">{error}</div>}
       {loading && <div>Loading...</div>}
 
-      {/* Table */}
-      {!loading && items.length > 0 && (
-        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr>
-                <th className="border px-2 py-1">Code</th>
-                <th className="border px-2 py-1">Name (UA)</th>
-                <th className="border px-2 py-1">Name (EN)</th>
-                <th className="border px-2 py-1">Price</th>
-                <th className="border px-2 py-1">Category</th>
-                <th className="border px-2 py-1">Custom categories</th>
-                <th className="border px-2 py-1">Tags</th>
-                <th className="border px-2 py-1">Photo URL</th>
-                <th className="border px-2 py-1">Active</th>
-                <th className="border px-2 py-1">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(item => (
-                <tr key={item.id}>
-  {/* Code */}
-  <td className="border px-2 py-1" style={{ whiteSpace: 'nowrap' }}>
-    {item.item_code}
-  </td>
+      {!loading && (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ minWidth: 280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label>Sheet (custom category)</label>
+              <select
+                value={selectedSheet}
+                onChange={e => setSelectedSheet(e.target.value)}
+                disabled={!sheetOptions.length}
+              >
+                {!sheetOptions.length ? (
+                  <option value="">No custom categories</option>
+                ) : (
+                  sheetOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))
+                )}
+              </select>
+            </div>
 
-  {/* Name UA */}
-  <td className="border px-2 py-1">{item.name_ua}</td>
+            <div style={{ minWidth: 260, flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label>Search in current sheet</label>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Name or code"
+              />
+            </div>
 
-  {/* Name EN */}
-  <td className="border px-2 py-1">{item.name_en}</td>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label>Sort by</label>
+                <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)}>
+                  <option value="name">Name</option>
+                  <option value="price">Price</option>
+                  <option value="code">Code</option>
+                </select>
+              </div>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
+                title="Toggle sort direction"
+                type="button"
+              >
+                {sortDir === 'asc' ? 'Asc' : 'Desc'}
+              </button>
+            </div>
+          </div>
 
-  {/* Price */}
-  <td className="border px-2 py-1">
-    {Number(item.base_price).toFixed(2)}
-  </td>
+          <div className="text-sm muted">
+            Current sheet: <strong>{selectedSheetLabel}</strong> • {visibleItems.length} items
+          </div>
 
-  {/* Category */}
-  <td className="border px-2 py-1">{item.category}</td>
-
-  {/* Custom categories */}
-  <td className="border px-2 py-1">
-    {Array.isArray(item.custom_category_ids) && item.custom_category_ids.length > 0 ? (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-        {item.custom_category_ids.map(id => {
-          const c = customCategories.find(x => x.id === id);
-          return (
-            <span key={id} style={tagPillStyle}>
-              {c?.name_ua || c?.slug || id}
-            </span>
-          );
-        })}
-      </div>
-    ) : (
-      <span className="text-xs opacity-70">—</span>
-    )}
-  </td>
-
-  {/* Tags */}
-  <td className="border px-2 py-1">
-    {Array.isArray(item.tags) && item.tags.length > 0 ? (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-        {item.tags.map(tag => (
-          <span key={tag} style={tagPillStyle}>{tag}</span>
-        ))}
-      </div>
-    ) : (
-      <span className="text-xs opacity-70">—</span>
-    )}
-  </td>
-
-  {/* Photo URL */}
-  <td className="border px-2 py-1" style={{ minWidth: 260 }}>
-    <input
-      defaultValue={(item.photos && item.photos[0]) || ''}
-      placeholder="/img/41.webp или 41.webp"
-      className="input"
-      style={{ width: '100%' }}
-      onKeyDown={e => {
-        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-      }}
-      onBlur={e => {
-        const url = (e.target as HTMLInputElement).value.trim();
-        const current = (item.photos && item.photos[0]) || '';
-        if (url !== current) savePhotoInline(item, url);
-      }}
-    />
-
-    {((item.photos && item.photos[0]) || '').trim() ? (
-      <img
-        src={normalizePhotoInput((item.photos && item.photos[0]) || '')}
-        alt=""
-        className="mt-2 h-10 w-10 rounded object-cover border"
-        onError={(e) => {
-          (e.currentTarget as HTMLImageElement).style.display = 'none';
-        }}
-      />
-    ) : null}
-  </td>
-
-  {/* Active */}
-  <td className="border px-2 py-1">{item.is_active ? 'Yes' : 'No'}</td>
-
-  {/* Actions */}
-  <td className="border px-2 py-1">
-    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-      <button
-        className="btn btn-ghost"
-        style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
-        onClick={() => startEdit(item)}
-      >
-        Edit
-      </button>
-      <button
-        className="btn btn-ghost"
-        style={{
-          padding: '0.25rem 0.75rem',
-          fontSize: '0.8rem',
-          borderColor: 'rgba(252, 165, 165, 0.35)',
-          color: '#fca5a5',
-        }}
-        onClick={() => handleDelete(item)}
-      >
-        Delete
-      </button>
-    </div>
-  </td>
-</tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrap" style={{ maxHeight: '62vh', overflow: 'auto' }}>
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Code</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Name (UA)</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Name (EN)</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Price</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Base category</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Custom categories</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Tags</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Photo URL</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleItems.map(item => (
+                  <tr key={item.id}>
+                    <td className="border px-2 py-1" style={{ whiteSpace: 'nowrap' }}>{item.item_code}</td>
+                    <td className="border px-2 py-1">{item.name_ua}</td>
+                    <td className="border px-2 py-1">{item.name_en}</td>
+                    <td className="border px-2 py-1">{Number(item.base_price).toFixed(2)}</td>
+                    <td className="border px-2 py-1">{item.category || '—'}</td>
+                    <td className="border px-2 py-1">
+                      {Array.isArray(item.custom_category_ids) && item.custom_category_ids.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {item.custom_category_ids.map(id => {
+                            const c = customCategories.find(x => x.id === id);
+                            return <span key={id} style={tagPillStyle}>{c?.name_ua || c?.slug || id}</span>;
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-xs opacity-70">—</span>
+                      )}
+                    </td>
+                    <td className="border px-2 py-1">
+                      {Array.isArray(item.tags) && item.tags.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {item.tags.map(tag => <span key={tag} style={tagPillStyle}>{tag}</span>)}
+                        </div>
+                      ) : (
+                        <span className="text-xs opacity-70">—</span>
+                      )}
+                    </td>
+                    <td className="border px-2 py-1" style={{ minWidth: 260 }}>
+                      <input
+                        defaultValue={(item.photos && item.photos[0]) || ''}
+                        placeholder="/img/41.webp or 41.webp"
+                        className="input"
+                        style={{ width: '100%' }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        }}
+                        onBlur={e => {
+                          const url = (e.target as HTMLInputElement).value.trim();
+                          const current = (item.photos && item.photos[0]) || '';
+                          if (url !== current) void savePhotoInline(item, url);
+                        }}
+                      />
+                      {((item.photos && item.photos[0]) || '').trim() ? (
+                        <img
+                          src={normalizePhotoInput((item.photos && item.photos[0]) || '')}
+                          alt=""
+                          className="mt-2 h-10 w-10 rounded object-cover border"
+                          onError={e => {
+                            (e.currentTarget as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                    </td>
+                    <td className="border px-2 py-1">
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => startEdit(item)}>Edit</button>
+                        <button className="btn btn-ghost btn-danger btn-sm" onClick={() => void handleDelete(item)}>Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!visibleItems.length && (
+                  <tr>
+                    <td colSpan={9} className="border px-2 py-2">
+                      No dishes in this sheet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Form */}
       <div className="card max-w-xl text-sm" style={{ width: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '0.75rem' }}>
-          <h2 className="font-semibold mb-1" style={{ margin: 0 }}>
-            {form.id ? 'Edit item' : 'Create new item'}
-          </h2>
-
+          <h2 className="font-semibold mb-1" style={{ margin: 0 }}>{form.id ? 'Edit item' : 'Create new item'}</h2>
           {form.id && (
             <button
               type="button"
@@ -490,38 +530,23 @@ export default function MenuPage() {
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label>Item code</label>
-              <input
-                value={form.item_code || ''}
-                onChange={e => updateForm('item_code', e.target.value as any)}
-                required
-              />
+              <input value={form.item_code || ''} onChange={e => updateForm('item_code', e.target.value as any)} required />
             </div>
 
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input
-                type="checkbox"
-                checked={form.is_active ?? true}
-                onChange={e => updateForm('is_active', e.target.checked as any)}
-              />
+              <input type="checkbox" checked={form.is_active ?? true} onChange={e => updateForm('is_active', e.target.checked as any)} />
               <span style={{ fontSize: '0.85rem' }}>Active</span>
             </label>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <label>Name (UA)</label>
-            <input
-              value={form.name_ua || ''}
-              onChange={e => updateForm('name_ua', e.target.value as any)}
-              required
-            />
+            <input value={form.name_ua || ''} onChange={e => updateForm('name_ua', e.target.value as any)} required />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <label>Name (EN)</label>
-            <input
-              value={form.name_en || ''}
-              onChange={e => updateForm('name_en', e.target.value as any)}
-            />
+            <input value={form.name_en || ''} onChange={e => updateForm('name_en', e.target.value as any)} />
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -545,9 +570,7 @@ export default function MenuPage() {
               />
               <datalist id="category-options">
                 {CATEGORY_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
+                  <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </datalist>
             </div>
@@ -555,7 +578,6 @@ export default function MenuPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <label>Tags (standard)</label>
-
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               {TAG_OPTIONS.map(tag => {
                 const checked = Array.isArray(form.tags) && form.tags.includes(tag as any);
@@ -580,10 +602,6 @@ export default function MenuPage() {
                   </button>
                 );
               })}
-            </div>
-
-            <div className="text-xs opacity-70">
-              Used for smart recommendations (e.g. “хочу что-то острое” → tag=spicy)
             </div>
           </div>
 
@@ -624,32 +642,17 @@ export default function MenuPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <label>Ingredients (comma-separated)</label>
-            <textarea
-              rows={2}
-              value={ingredientsText}
-              onChange={e => setIngredientsText(e.target.value)}
-              placeholder="shrimp, garlic, chili"
-            />
+            <textarea rows={2} value={ingredientsText} onChange={e => setIngredientsText(e.target.value)} placeholder="shrimp, garlic, chili" />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <label>Allergens (comma-separated)</label>
-            <textarea
-              rows={2}
-              value={allergensText}
-              onChange={e => setAllergensText(e.target.value)}
-              placeholder="shrimp, gluten"
-            />
+            <textarea rows={2} value={allergensText} onChange={e => setAllergensText(e.target.value)} placeholder="shrimp, gluten" />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <label>Photo URLs (comma-separated)</label>
-            <textarea
-              rows={2}
-              value={photosText}
-              onChange={e => setPhotosText(e.target.value)}
-              placeholder="41.webp, 74.webp или /img/41.webp, /img/74.webp"
-            />
+            <textarea rows={2} value={photosText} onChange={e => setPhotosText(e.target.value)} placeholder="41.webp, 74.webp or /img/41.webp" />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -662,3 +665,4 @@ export default function MenuPage() {
     </div>
   );
 }
+
