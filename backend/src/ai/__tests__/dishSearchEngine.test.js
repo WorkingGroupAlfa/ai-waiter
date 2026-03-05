@@ -89,6 +89,24 @@ const SAMPLE_INDEX = [
     tags: ['sushi', 'rolls'],
     ingredients: ['salmon', 'rice'],
   }),
+  buildIndexItem({
+    id: '5',
+    item_code: 'BEEF_STEAK',
+    name_en: 'Beef Steak',
+    name_local: '\u0421\u0442\u0435\u0439\u043a \u0437 \u044f\u043b\u043e\u0432\u0438\u0447\u0438\u043d\u0438',
+    category: 'main',
+    tags: ['meat', 'main'],
+    ingredients: ['beef', 'pepper'],
+  }),
+  buildIndexItem({
+    id: '6',
+    item_code: 'EDAMAME',
+    name_en: 'Edamame',
+    name_local: '\u0415\u0434\u0430\u043c\u0430\u043c\u0435',
+    category: 'hot starters',
+    tags: ['vegan', 'starter'],
+    ingredients: ['soybeans', 'salt'],
+  }),
 ];
 
 test('query understanding maps EN/RU/UK noodles to same concept', () => {
@@ -151,3 +169,27 @@ test('spicy query prefers spicy tagged dish', () => {
   assert.equal(result.results[0].item_code, 'SPICY_UDON');
 });
 
+test('burger concept is strict and returns no unrelated matches when absent', () => {
+  const result = rankDishCandidatesFromIndex({
+    queryText: 'burger',
+    locale: 'en',
+    indexItems: SAMPLE_INDEX,
+    limit: 5,
+  });
+
+  assert.equal(result.blockedByStrictFilter, true);
+  assert.equal(result.results.length, 0);
+});
+
+test('meat dishes query returns meat dishes and excludes vegetarian starters', () => {
+  const result = rankDishCandidatesFromIndex({
+    queryText: 'Do you have meat dishes?',
+    locale: 'en',
+    indexItems: SAMPLE_INDEX,
+    limit: 5,
+  });
+
+  assert.ok(result.results.length >= 1);
+  assert.equal(result.results.some((x) => x.item_code === 'BEEF_STEAK'), true);
+  assert.equal(result.results.some((x) => x.item_code === 'EDAMAME'), false);
+});

@@ -133,6 +133,10 @@ export function resolveReferences({ nluResult, dialogState, currentOrder }) {
             menuItemId,
             quantity,
             modifiers,
+            matchConfidence: Number.isFinite(Number(it.matchConfidence))
+              ? Number(it.matchConfidence)
+              : 0,
+            rawText: it.rawText || null,
           },
         });
         contextPatch.lastFocusedMenuItemId = menuItemId;
@@ -144,6 +148,10 @@ export function resolveReferences({ nluResult, dialogState, currentOrder }) {
             menuItemId: lastFocusedMenuItemId,
             quantity,
             modifiers,
+            matchConfidence: Number.isFinite(Number(it.matchConfidence))
+              ? Number(it.matchConfidence)
+              : 0,
+            rawText: it.rawText || null,
           },
         });
       }

@@ -245,7 +245,36 @@ export async function findCustomCategoryByMention(restaurantId, mentionText = ''
       .trim();
 
   const mentionNorm = normalize(mention);
-  const mentionTokens = new Set(mentionNorm.split(' ').filter(Boolean));
+  const GENERIC_TOKENS = new Set([
+    'dish',
+    'dishes',
+    'food',
+    'menu',
+    'item',
+    'items',
+    'have',
+    'show',
+    'want',
+    'what',
+    '\u0431\u043b\u044e\u0434\u043e',
+    '\u0431\u043b\u044e\u0434\u0430',
+    '\u0441\u0442\u0440\u0430\u0432\u0430',
+    '\u0441\u0442\u0440\u0430\u0432\u0438',
+    '\u043c\u0435\u043d\u044e',
+    '\u0454',
+    '\u0435\u0441\u0442\u044c',
+    '\u0445\u043e\u0447\u0443',
+    '\u043f\u043e\u043a\u0430\u0436\u0438',
+    '\u0449\u043e',
+    '\u0443',
+    '\u0432\u0430\u0441',
+  ]);
+  const mentionTokens = new Set(
+    mentionNorm
+      .split(' ')
+      .filter(Boolean)
+      .filter((t) => t.length >= 3 && !GENERIC_TOKENS.has(t))
+  );
 
   const addKnownAliases = (terms, row) => {
     const title = normalize(row?.name_ua || row?.name_en || row?.slug || '');
@@ -297,7 +326,12 @@ export async function findCustomCategoryByMention(restaurantId, mentionText = ''
       if (mentionNorm.includes(t)) return true;
       if (t.includes(mentionNorm) && mentionNorm.length >= 4) return true;
       const tt = t.split(' ').filter(Boolean);
-      return tt.some((w) => w.length >= 4 && mentionTokens.has(w));
+      return tt.some(
+        (w) =>
+          w.length >= 4 &&
+          !GENERIC_TOKENS.has(w) &&
+          mentionTokens.has(w)
+      );
     });
 
     if (strong) return row;

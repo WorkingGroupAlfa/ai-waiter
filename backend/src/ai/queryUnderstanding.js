@@ -117,6 +117,33 @@ const DISH_CONCEPTS = {
     allowTags: ['drink', 'beverage'],
     allowCategories: ['drink', 'drinks'],
   },
+  meat: {
+    strict: false,
+    terms: [
+      'meat',
+      'meaty',
+      '\u043c\u044f\u0441\u043e',
+      "\u043c'\u044f\u0441\u043e",
+      '\u043c\u2019\u044f\u0441\u043e',
+      'beef',
+      'chicken',
+      'duck',
+      'pork',
+      'lamb',
+    ],
+    requiredTokens: ['meat', '\u043c\u044f\u0441', "\u043c'\u044f\u0441", 'beef', 'chicken', 'duck', 'pork', 'lamb'],
+    allowTags: ['meat', 'beef', 'chicken', 'duck', 'pork', 'lamb'],
+    allowCategories: ['main', 'hot dishes', 'grill'],
+    allowIngredients: ['beef', 'chicken', 'duck', 'pork', 'lamb', '\u044f\u043b\u043e\u0432\u0438\u0447', '\u043a\u0443\u0440', '\u043a\u0430\u0447\u043a', '\u0441\u0432\u0438\u043d', '\u0431\u0430\u0440\u0430\u043d'],
+  },
+  burger: {
+    strict: true,
+    terms: ['burger', 'burgers', '\u0431\u0443\u0440\u0433\u0435\u0440', '\u0431\u0443\u0440\u0433\u0435\u0440\u0438'],
+    requiredTokens: ['burger', '\u0431\u0443\u0440\u0433\u0435\u0440'],
+    allowTags: ['burger', 'burgers'],
+    allowCategories: ['burger', 'burgers'],
+    allowIngredients: ['burger', 'beef patty', 'bun'],
+  },
   spicy: {
     strict: false,
     terms: [
@@ -298,4 +325,3 @@ export function buildQueryUnderstanding(text, { localeHint = null } = {}) {
 export function getConceptConfig(conceptName) {
   return DISH_CONCEPTS[conceptName] || null;
 }
-

@@ -65,11 +65,9 @@ export async function findRequestedCustomCategory({
   const intent = String(nlu?.intent || '').toLowerCase();
   const intentLooksLikeDiscovery =
     intent === 'ask_menu' ||
-    intent === 'order' ||
-    intent === 'add_to_order' ||
     intent === 'unknown';
 
-  if (!hasRequestPhrase && !intentLooksLikeDiscovery) {
+  if (!intentLooksLikeDiscovery) {
     return null;
   }
 

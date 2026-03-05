@@ -11,6 +11,7 @@ import {
 
 const INDEX_TTL_MS = Number(process.env.DISH_INDEX_TTL_MS || 120000);
 const SYN_TTL_MS = Number(process.env.DISH_SYNONYM_TTL_MS || 120000);
+const MATCH_DEBUG = process.env.AI_MATCH_DEBUG === '1';
 
 const indexCache = new Map(); // restaurantId -> { exp, items }
 const synonymCache = new Map(); // restaurantId -> { exp, rows }
@@ -48,7 +49,7 @@ function isCategoryLikeValueMatch(itemSet, allowedValues) {
     const norm = normalizeQueryText(value);
     if (!norm) continue;
     if (itemSet.has(norm)) return true;
-    if (Array.from(itemSet).some((x) => x.includes(norm) || norm.includes(x))) return true;
+    if (Array.from(itemSet).some((x) => x.includes(norm))) return true;
   }
   return false;
 }
@@ -200,10 +201,12 @@ function calculateScore({ queryTokens, strictConcepts, preferenceConcepts, item 
     if (!cfg) continue;
     const categoryHit = isCategoryLikeValueMatch(item.categorySet, cfg.allowCategories || []);
     const tagHit = isCategoryLikeValueMatch(item.tagSet, cfg.allowTags || []);
-    if (categoryHit || tagHit) {
+    const ingredientHit = isCategoryLikeValueMatch(item.ingredientSet, cfg.allowIngredients || []);
+    if (categoryHit || tagHit || ingredientHit) {
       conceptMatch += 1;
       if (categoryHit) categoryMatch += 1;
       if (tagHit) tagMatch += 1;
+      if (ingredientHit) ingredientMatch += 1;
     }
   }
 
@@ -211,9 +214,11 @@ function calculateScore({ queryTokens, strictConcepts, preferenceConcepts, item 
     const cfg = getConceptConfig(conceptName);
     if (!cfg) continue;
     const tagHit = isCategoryLikeValueMatch(item.tagSet, cfg.allowTags || []);
-    if (tagHit) {
+    const ingredientHit = isCategoryLikeValueMatch(item.ingredientSet, cfg.allowIngredients || []);
+    if (tagHit || ingredientHit) {
       conceptMatch += 1;
-      tagMatch += 1;
+      if (tagHit) tagMatch += 1;
+      if (ingredientHit) ingredientMatch += 1;
     }
   }
 
@@ -247,8 +252,9 @@ function itemMatchesStrictConcept(item, conceptName) {
   if (!cfg) return false;
   const categoryHit = isCategoryLikeValueMatch(item.categorySet, cfg.allowCategories || []);
   const tagHit = isCategoryLikeValueMatch(item.tagSet, cfg.allowTags || []);
+  const ingredientHit = isCategoryLikeValueMatch(item.ingredientSet, cfg.allowIngredients || []);
   const tokenHit = (cfg.requiredTokens || []).some((token) => item.tokenSet.has(token));
-  return categoryHit || tagHit || tokenHit;
+  return categoryHit || tagHit || ingredientHit || tokenHit;
 }
 
 function passesStrictFiltering(item, strictConcepts) {
@@ -333,12 +339,31 @@ export async function findDishCandidates({
     return { understanding, strictConcepts: [], results: [], blockedByStrictFilter: false };
   }
 
-  return rankDishCandidatesFromIndex({
+  const ranked = rankDishCandidatesFromIndex({
     queryText: text,
     locale,
     indexItems: index,
     limit,
   });
+
+  if (MATCH_DEBUG) {
+    console.log('[AI_MATCH_DEBUG][findDishCandidates]', {
+      restaurantId,
+      text,
+      detected_language: ranked?.understanding?.language || null,
+      intent: ranked?.understanding?.intent || null,
+      concepts: ranked?.understanding?.concepts || [],
+      strictConcepts: ranked?.strictConcepts || [],
+      blockedByStrictFilter: Boolean(ranked?.blockedByStrictFilter),
+      topCandidates: (ranked?.results || []).slice(0, 5).map((r) => ({
+        item_code: r.item_code,
+        score: r.score,
+        score_breakdown: r.score_breakdown,
+      })),
+    });
+  }
+
+  return ranked;
 }
 
 export async function matchSingleDishDeterministic({

@@ -17,6 +17,8 @@ import { loadPersona } from '../services/aiPersonaService.js';
 import { insertPerformanceMetric } from '../models/performanceMetricsModel.js';
 
 import { parseUserInput, parseUserMessage as legacyParseUserMessage } from './nluService.js';
+import { buildQueryUnderstanding } from './queryUnderstanding.js';
+import { decideOrderMutationPolicy } from './orderDecisionPolicy.js';
 import { resolveReferences } from './contextResolver.js';
 import {
   loadSessionMemory,
@@ -25,7 +27,6 @@ import {
   updateDeviceMemory,
 } from './memoryService.js';
 import {
-  handleOrderIntentFromNLU,
   handleModifyOrderFromNLU,
   getOrCreateDraftOrderForSession,
   addDishItemsToOrder,
@@ -428,6 +429,28 @@ function detectAvailabilityCategoryHint(text) {
   return null;
 }
 
+function buildNoAddFallbackText(understanding, hasSuggestions) {
+  const concepts = Array.isArray(understanding?.concepts) ? understanding.concepts : [];
+  if (concepts.includes('burger')) {
+    return hasSuggestions
+      ? "We don't have burgers. Here are the closest options."
+      : "We don't have burgers on the menu right now.";
+  }
+  if (concepts.includes('noodles')) {
+    return hasSuggestions
+      ? 'I found noodle-related options for you.'
+      : "We don't have noodle dishes right now.";
+  }
+  if (concepts.includes('meat')) {
+    return hasSuggestions
+      ? 'Here are meat dishes you may like.'
+      : "I couldn't find meat dishes right now. Tell me which meat you prefer: beef, chicken, duck, or pork.";
+  }
+  return hasSuggestions
+    ? "I couldn't safely add an exact item yet, but here are the closest options."
+    : "I couldn't detect a specific menu item to add. Please name an exact dish.";
+}
+
 
 
 
@@ -730,6 +753,21 @@ return {
   });
 
   const resolvedIntent = resolved.intent || nlu.intent;
+  const queryUnderstanding = buildQueryUnderstanding(normalizedText, {
+    localeHint: language,
+  });
+
+  if (process.env.AI_MATCH_DEBUG === '1') {
+    console.log('[AI_MATCH_DEBUG][dialog:nlu]', {
+      text: normalizedText,
+      detected_language: queryUnderstanding.language,
+      detected_intent: resolvedIntent,
+      concepts: queryUnderstanding.concepts,
+      nlu_clarification_needed: Boolean(
+        nlu?.clarificationNeeded ?? nlu?.meta?.clarificationNeeded
+      ),
+    });
+  }
 
     // ✅ Если пользователь пошёл дальше (не confirm/reject upsell) — не показываем старый upsell снова
   if (resolvedIntent !== 'confirm' && resolvedIntent !== 'confirm_upsell' && resolvedIntent !== 'reject_upsell') {
@@ -931,7 +969,9 @@ if (extractedDishQuery && extractedDishQuery.length >= 3) {
   // 2) Recommendation / menu exploration: use existing semantic suggestion service
     // 2) Recommendation / menu exploration: use existing semantic suggestion service
   const availabilityQ = isAvailabilityQuestion(normalizedText);
-  const availabilityHint = availabilityQ ? detectAvailabilityCategoryHint(normalizedText) : null;
+  const hasConcepts = Array.isArray(queryUnderstanding?.concepts) && queryUnderstanding.concepts.length > 0;
+  const availabilityHint =
+    availabilityQ && !hasConcepts ? detectAvailabilityCategoryHint(normalizedText) : null;
 
   // We want fewer options in UI:
   // - recommendations: up to 4 items
@@ -959,8 +999,7 @@ if (extractedDishQuery && extractedDishQuery.length >= 3) {
   }
 
 if (!suggestions || suggestions.length === 0) {
-    const baseTextEn =
-      "Tell me what you're in the mood for (spicy, salty, sweet, light, drink, dessert) — or name a dish, and I'll describe it.";
+    const baseTextEn = buildNoAddFallbackText(queryUnderstanding, false);
     const reply = await respondInLanguage({
       baseTextEn,
       targetLanguage: language,
@@ -980,7 +1019,7 @@ if (!suggestions || suggestions.length === 0) {
     .filter((s) => Boolean(s.code));
 
   const baseTextEn = availabilityQ
-    ? "We don't have that on the menu, but here are a few ideas."
+    ? buildNoAddFallbackText(queryUnderstanding, true)
     : 'Here are a few ideas. Tap + to add items to your cart (you can add more than one).';
 
   const reply = await respondInLanguage({
@@ -1063,17 +1102,35 @@ case 'allergy_info': {
     case 'order':
     case 'add_to_order': {
       const actions = resolved?.actions || [];
+      const mutationPolicy = decideOrderMutationPolicy({
+        resolvedIntent,
+        text: normalizedText,
+        nluItems: Array.isArray(nlu?.items) ? nlu.items : [],
+        clarificationNeeded:
+          nlu?.clarificationNeeded ?? nlu?.meta?.clarificationNeeded ?? false,
+        queryUnderstanding,
+      });
+
+      if (process.env.AI_MATCH_DEBUG === '1') {
+        console.log('[AI_MATCH_DEBUG][dialog:mutation_decision]', {
+          text: normalizedText,
+          detected_language: queryUnderstanding.language,
+          detected_intent: resolvedIntent,
+          policy_mode: mutationPolicy.mode,
+          reason: mutationPolicy.reason,
+          explicit_order_action: mutationPolicy.explicitOrderAction,
+          eligible_items: (mutationPolicy.eligibleItems || []).map((it) => ({
+            rawText: it.rawText || null,
+            menu_item_id: it.menu_item_id || null,
+            matchConfidence: Number(it.matchConfidence || 0),
+          })),
+        });
+      }
 
       let updatedOrder;
       let addedItems = [];
 
-      if (!actions.length) {
-        // --- СТАРЫЙ ПУТЬ: legacy по entities.dishes ---
-        const legacyResult = await handleOrderIntentFromNLU(session, nlu);
-        updatedOrder = legacyResult.order;
-        addedItems = legacyResult.addedItems || [];
-      } else {
-        // --- НОВЫЙ ПУТЬ: actions из ContextResolver + orderMutationService ---
+      if (mutationPolicy.mode === 'add' && actions.length) {
         if (!order || !order.id) {
           const draft = await getOrCreateDraftOrderForSession(session);
           orderForResponse = draft;
@@ -1093,8 +1150,11 @@ case 'allergy_info': {
         for (const act of actions) {
           if (!act || act.type !== 'add_item') continue;
 
-          const { menuItemId, quantity, modifiers } = act.payload || {};
+          const { menuItemId, quantity, modifiers, matchConfidence } = act.payload || {};
           if (!menuItemId) continue;
+          if (!Number.isFinite(Number(matchConfidence)) || Number(matchConfidence) < Number(process.env.AI_AUTO_ADD_CONFIDENCE_THRESHOLD || 0.84)) {
+            continue;
+          }
 
           await addItemToOrder(orderId, menuItemId, {
             quantity:
@@ -1112,21 +1172,53 @@ case 'allergy_info': {
         orderForResponse = updatedOrder;
       }
 
-      // 1) Если вообще ничего не добавили — NLG-ответ
       if (!updatedOrder || !addedItems || addedItems.length === 0) {
-        const baseTextEn =
-          'I couldn’t detect any specific dishes in your message. ' +
-          'Try something like: "I want a lemonade and shrimp popcorn".';
+        const suggestionLimit = 4;
+        const suggestions = await suggestMenuItems(session.restaurant_id, {
+          query: normalizedText,
+          locale: language,
+          limit: suggestionLimit,
+        });
+        const recommendations = (suggestions || [])
+          .slice(0, suggestionLimit)
+          .map((s) => ({
+            code: s.item_code,
+            name: s.name || s.item_code,
+            unitPrice: s.price != null ? Number(s.price) : null,
+            imageUrl: s.image_url || null,
+          }))
+          .filter((s) => Boolean(s.code));
+
+        if (process.env.AI_MATCH_DEBUG === '1') {
+          console.log('[AI_MATCH_DEBUG][dialog:add_or_suggest]', {
+            decision: 'SUGGEST',
+            reason: mutationPolicy.reason,
+            topCandidates: recommendations.slice(0, 5).map((r) => ({
+              code: r.code,
+              name: r.name,
+            })),
+          });
+        }
+
+        const baseTextEn = buildNoAddFallbackText(
+          queryUnderstanding,
+          recommendations.length > 0
+        );
 
         const reply = await respondInLanguage({
           baseTextEn,
           targetLanguage: language,
         });
 
-        return { nlu, handled: true, reply, order: orderForResponse };
+        return {
+          nlu,
+          handled: true,
+          reply,
+          order: orderForResponse,
+          recommendations: recommendations.length ? recommendations : null,
+        };
       }
 
-      // 2) EN-only: основное резюме заказа
       let baseTextEn = buildOrderReplyText(updatedOrder);
 
       
