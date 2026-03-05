@@ -2,7 +2,7 @@
 import express from 'express';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 import { applyUiUpdateForSession } from '../services/orderUiService.js';
-import { submitOrderForSession } from '../services/orderService.js';
+import { submitOrderForSession, getOrderForSession } from '../services/orderService.js';
 import { sendOrderToTelegram } from '../services/telegramService.js';
 import { logEvent } from '../services/eventService.js';
 import { getChatUpsellSuggestion } from '../ai/recommendationService.js';
@@ -386,22 +386,42 @@ orderUiRouter.post('/submit', async (req, res) => {
       });
     }
 
-    const order = await submitOrderForSession(session, order_id);
+    let order = null;
+    let alreadySubmitted = false;
 
-    // Логика отправки в Telegram сохранена
-    await sendOrderToTelegram(order);
+    try {
+      order = await submitOrderForSession(session, order_id);
+    } catch (submitErr) {
+      if (submitErr?.code !== 'ORDER_NOT_DRAFT') {
+        throw submitErr;
+      }
+
+      const existingOrder = await getOrderForSession(session, order_id);
+      if (existingOrder?.status !== 'submitted') {
+        throw submitErr;
+      }
+
+      order = existingOrder;
+      alreadySubmitted = true;
+    }
+
+    if (!alreadySubmitted) {
+      await sendOrderToTelegram(order);
+    }
 
     await logEvent('order_submitted_ui', {
       session,
       deviceId: session.device_id,
       orderId: order.id,
       source: 'chat_ui',
+      already_submitted: alreadySubmitted,
     });
 
     return res.json({
       ok: true,
       orderId: order.id,
       status: order.status,
+      alreadySubmitted,
     });
   } catch (err) {
     console.error('Error in POST /order/submit', err);
@@ -412,6 +432,7 @@ orderUiRouter.post('/submit', async (req, res) => {
     if (code === 'ORDER_NOT_FOUND' || code === 'ORDER_STATUS_INVALID') {
       status = 400;
     }
+    if (code === 'ORDER_NOT_DRAFT') status = 409;
 
     return res.status(status).json({
       error: code,
@@ -419,3 +440,4 @@ orderUiRouter.post('/submit', async (req, res) => {
     });
   }
 });
+
