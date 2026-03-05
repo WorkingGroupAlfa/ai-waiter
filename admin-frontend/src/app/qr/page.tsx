@@ -14,6 +14,8 @@ export default function QrPage() {
   const [tableId, setTableId] = useState('');
   const [ttlMinutes, setTtlMinutes] = useState(15);
   const [resultToken, setResultToken] = useState<string | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [persistentMode, setPersistentMode] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -53,17 +55,25 @@ export default function QrPage() {
     e.preventDefault();
     setError(null);
     setResultToken(null);
+    setResultUrl(null);
     setLoading(true);
 
     try {
-      const res = await apiClient.post('/qr/admin/create', {
-        restaurant_id: RESTAURANT_ID,
-        table_id: tableId,
-        ttl_minutes: ttlMinutes,
-      });
+      const res = persistentMode
+        ? await apiClient.post('/qr/admin/table-code', {
+            restaurant_id: RESTAURANT_ID,
+            table_id: tableId,
+            rotate: false,
+          })
+        : await apiClient.post('/qr/admin/create', {
+            restaurant_id: RESTAURANT_ID,
+            table_id: tableId,
+            ttl_minutes: ttlMinutes,
+          });
 
       const qr = res.data.qr || res.data;
-      setResultToken(qr.token || qr.qr_token || null);
+      setResultToken(qr.token || qr.qr_token || qr.table_code || null);
+      setResultUrl(qr.qr_url || null);
     } catch (err: any) {
       console.error(err);
       setError('Failed to generate QR');
@@ -103,12 +113,24 @@ export default function QrPage() {
           />
         </div>
         <div className="flex flex-col gap-1">
+          <label>Mode</label>
+          <select
+            className="border rounded px-2 py-1"
+            value={persistentMode ? 'persistent' : 'one_time'}
+            onChange={e => setPersistentMode(e.target.value === 'persistent')}
+          >
+            <option value="persistent">Persistent table QR (for printing)</option>
+            <option value="one_time">One-time token QR</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
           <label>TTL (minutes)</label>
           <input
             type="number"
             className="border rounded px-2 py-1"
             value={ttlMinutes}
             onChange={e => setTtlMinutes(Number(e.target.value) || 15)}
+            disabled={persistentMode}
           />
         </div>
         <button
@@ -124,10 +146,18 @@ export default function QrPage() {
 
       {resultToken && (
         <div className="mt-4 text-sm">
-          <div className="font-semibold mb-1">QR token:</div>
+          <div className="font-semibold mb-1">{persistentMode ? 'Table code:' : 'QR token:'}</div>
           <code className="border px-2 py-1 rounded inline-block break-all">
             {resultToken}
           </code>
+          {resultUrl && (
+            <div className="mt-2">
+              <div className="font-semibold mb-1">QR link:</div>
+              <code className="border px-2 py-1 rounded inline-block break-all">
+                {resultUrl}
+              </code>
+            </div>
+          )}
         </div>
       )}
 

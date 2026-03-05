@@ -2,6 +2,28 @@
 import { v4 as uuidv4 } from 'uuid';
 import { insertQrToken, findQrToken, markQrTokenUsed } from '../models/qrTokenModel.js';
 import { insertSession } from '../models/sessionModel.js';
+import {
+  upsertQrTableCode,
+  findQrTableCodeByRestaurantAndTable,
+  findActiveQrTableCode,
+} from '../models/qrTableCodeModel.js';
+
+function getPublicQrBaseUrl() {
+  const raw =
+    process.env.QR_PUBLIC_BASE_URL ||
+    process.env.ASSISTANT_PUBLIC_URL ||
+    process.env.FRONTEND_PUBLIC_URL ||
+    '';
+
+  if (raw && String(raw).trim()) return String(raw).trim();
+  return 'https://mysite.com/assistant.html';
+}
+
+function buildQrUrl(paramName, paramValue) {
+  const base = getPublicQrBaseUrl();
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}${encodeURIComponent(paramName)}=${encodeURIComponent(paramValue)}`;
+}
 
 /**
  * Создать одноразовый QR-токен для ресторана/стола.
@@ -20,9 +42,7 @@ export async function createAdminQrToken({ restaurantId, tableId, ttlMinutes = 1
     expiresAt,
   });
 
-  // В реале сюда можно вынести базовый URL в конфиг
-  const qrUrl = `https://mysite.com/qr/${token}`;
-  // Для dev: http://localhost:5501/assistant.html?qr=${token}
+  const qrUrl = buildQrUrl('qr_token', token);
 
   return {
     qr_token: qrRow.token,
@@ -30,6 +50,32 @@ export async function createAdminQrToken({ restaurantId, tableId, ttlMinutes = 1
     restaurant_id: qrRow.restaurant_id,
     table_id: qrRow.table_id,
     expires_at: qrRow.expires_at.toISOString(),
+  };
+}
+
+export async function createOrGetPersistentTableQr({
+  restaurantId,
+  tableId,
+  rotate = false,
+} = {}) {
+  const existing = await findQrTableCodeByRestaurantAndTable({ restaurantId, tableId });
+  const tableCode =
+    !rotate && existing?.table_code ? String(existing.table_code) : uuidv4();
+
+  const row = await upsertQrTableCode({
+    restaurantId,
+    tableId,
+    tableCode,
+  });
+
+  return {
+    table_code: row.table_code,
+    qr_url: buildQrUrl('token', row.table_code),
+    restaurant_id: row.restaurant_id,
+    table_id: row.table_id,
+    is_active: Boolean(row.is_active),
+    created_at: row.created_at?.toISOString?.() || row.created_at || null,
+    updated_at: row.updated_at?.toISOString?.() || row.updated_at || null,
   };
 }
 
@@ -47,13 +93,42 @@ export async function verifyQrAndCreateSession({
   deviceId,
   sessionTtlHours = 2,
 }) {
+  const now = new Date();
   const qr = await findQrToken(qrToken);
 
   if (!qr) {
-    return { status: 'NOT_FOUND' };
-  }
+    // Backward-compatible bridge for static printable table QR:
+    // frontend still passes ?token=... into /qr/verify as qr_token.
+    const mapped = await findActiveQrTableCode(qrToken);
+    if (!mapped) return { status: 'NOT_FOUND' };
 
-  const now = new Date();
+    const sessionId = uuidv4();
+    const sessionExpiresAt = new Date(now.getTime() + sessionTtlHours * 60 * 60 * 1000);
+    const sessionRow = await insertSession({
+      id: sessionId,
+      deviceId,
+      restaurantId: mapped.restaurant_id,
+      tableId: mapped.table_id,
+      expiresAt: sessionExpiresAt,
+    });
+
+    return {
+      status: 'OK',
+      session: {
+        session_token: sessionRow.id,
+        device_id: sessionRow.device_id,
+        restaurant_id: sessionRow.restaurant_id,
+        table_id: sessionRow.table_id,
+        expires_at: new Date(sessionRow.expires_at).toISOString(),
+      },
+      qr: null,
+      table: {
+        table_code: mapped.table_code,
+        restaurant_id: mapped.restaurant_id,
+        table_id: mapped.table_id,
+      },
+    };
+  }
 
   if (qr.used_at) {
     return { status: 'ALREADY_USED' };
@@ -90,5 +165,42 @@ export async function verifyQrAndCreateSession({
     status: 'OK',
     session,
     qr,
+  };
+}
+
+export async function issueSessionByTableCode({
+  tableCode,
+  deviceId,
+  sessionTtlHours = 2,
+}) {
+  const row = await findActiveQrTableCode(tableCode);
+  if (!row) return { status: 'NOT_FOUND' };
+
+  const now = new Date();
+  const sessionId = uuidv4();
+  const expiresAt = new Date(now.getTime() + sessionTtlHours * 60 * 60 * 1000);
+
+  const sessionRow = await insertSession({
+    id: sessionId,
+    deviceId,
+    restaurantId: row.restaurant_id,
+    tableId: row.table_id,
+    expiresAt,
+  });
+
+  return {
+    status: 'OK',
+    session: {
+      session_token: sessionRow.id,
+      device_id: sessionRow.device_id,
+      restaurant_id: sessionRow.restaurant_id,
+      table_id: sessionRow.table_id,
+      expires_at: new Date(sessionRow.expires_at).toISOString(),
+    },
+    table: {
+      table_code: row.table_code,
+      restaurant_id: row.restaurant_id,
+      table_id: row.table_id,
+    },
   };
 }
