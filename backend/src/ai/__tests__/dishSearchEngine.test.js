@@ -119,6 +119,15 @@ test('query understanding maps EN/RU/UK noodles to same concept', () => {
   assert.ok(uk.concepts.includes('noodles'));
 });
 
+test('query understanding detects chicken and tequila preference concepts', () => {
+  const chicken = buildQueryUnderstanding('хочу мясное блюдо с курицей', { localeHint: 'ru' });
+  const tequila = buildQueryUnderstanding('Хочу текилу', { localeHint: 'ru' });
+
+  assert.ok(chicken.concepts.includes('chicken'));
+  assert.ok(chicken.concepts.includes('meat'));
+  assert.ok(tequila.concepts.includes('tequila'));
+});
+
 test('noodles query returns noodle dishes and excludes nigiri', () => {
   const result = rankDishCandidatesFromIndex({
     queryText: 'noodles',
@@ -191,5 +200,18 @@ test('meat dishes query returns meat dishes and excludes vegetarian starters', (
 
   assert.ok(result.results.length >= 1);
   assert.equal(result.results.some((x) => x.item_code === 'BEEF_STEAK'), true);
+  assert.equal(result.results.some((x) => x.item_code === 'EDAMAME'), false);
+});
+
+test('"meat dish with chicken" prefers chicken/meat dishes and excludes vegan starter', () => {
+  const result = rankDishCandidatesFromIndex({
+    queryText: 'хочу мясное блюдо с курицей',
+    locale: 'ru',
+    indexItems: SAMPLE_INDEX,
+    limit: 5,
+  });
+
+  assert.ok(result.results.length >= 1);
+  assert.equal(result.results.some((x) => x.item_code === 'CHICKEN_RAMEN'), true);
   assert.equal(result.results.some((x) => x.item_code === 'EDAMAME'), false);
 });

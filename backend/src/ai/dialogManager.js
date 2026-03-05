@@ -1,6 +1,6 @@
-// src/ai/dialogManager.js
-// Фасад над всей логикой обработки сообщений:
-// text -> NLU -> ContextResolver -> OrderMutation + upsell + allergy + эмоции.
+﻿// src/ai/dialogManager.js
+// Р¤Р°СЃР°Рґ РЅР°Рґ РІСЃРµР№ Р»РѕРіРёРєРѕР№ РѕР±СЂР°Р±РѕС‚РєРё СЃРѕРѕР±С‰РµРЅРёР№:
+// text -> NLU -> ContextResolver -> OrderMutation + upsell + allergy + СЌРјРѕС†РёРё.
 import { respondInLanguage } from './nlgService.js';
 import { getMenuItemsBasicByCodes, getMenuItemWithDetailsById } from '../models/menuModel.js';
 
@@ -17,8 +17,13 @@ import { loadPersona } from '../services/aiPersonaService.js';
 import { insertPerformanceMetric } from '../models/performanceMetricsModel.js';
 
 import { parseUserInput, parseUserMessage as legacyParseUserMessage } from './nluService.js';
-import { buildQueryUnderstanding } from './queryUnderstanding.js';
+import { buildQueryUnderstanding, getConceptConfig } from './queryUnderstanding.js';
 import { decideOrderMutationPolicy } from './orderDecisionPolicy.js';
+import {
+  dedupeByCode,
+  buildOrderDraftForResponseSafe,
+  buildOrderReplyTextSafe,
+} from './dialogResponseUtils.js';
 import { resolveReferences } from './contextResolver.js';
 import {
   loadSessionMemory,
@@ -230,23 +235,23 @@ async function runNLU({
     return baseResult;
   }
 
-  // Определяем restaurantId: сначала из заказа, потом из сессии
+  // РћРїСЂРµРґРµР»СЏРµРј restaurantId: СЃРЅР°С‡Р°Р»Р° РёР· Р·Р°РєР°Р·Р°, РїРѕС‚РѕРј РёР· СЃРµСЃСЃРёРё
   const restaurantId = order?.restaurant_id || session?.restaurant_id || null;
 
-  // --- Пытаемся использовать НОВЫЙ NLU ---
+  // --- РџС‹С‚Р°РµРјСЃСЏ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РќРћР’Р«Р™ NLU ---
   try {
     const nlu = await parseUserInput({
       text: normalizedText,
-      // язык можно брать из профиля, если он есть
+      // СЏР·С‹Рє РјРѕР¶РЅРѕ Р±СЂР°С‚СЊ РёР· РїСЂРѕС„РёР»СЏ, РµСЃР»Рё РѕРЅ РµСЃС‚СЊ
       locale: clientLanguage || deviceProfile?.preferred_locale || deviceProfile?.language || null,
 
-      // КРИТИЧНО: пробрасываем restaurantId во всех видах,
-      // чтобы parseUserInput/semanticMatcher точно его увидели
+      // РљР РРўРР§РќРћ: РїСЂРѕР±СЂР°СЃС‹РІР°РµРј restaurantId РІРѕ РІСЃРµС… РІРёРґР°С…,
+      // С‡С‚РѕР±С‹ parseUserInput/semanticMatcher С‚РѕС‡РЅРѕ РµРіРѕ СѓРІРёРґРµР»Рё
       restaurantId,
-      restaurant_id: restaurantId, // на случай, если внутри ждут snake_case
+      restaurant_id: restaurantId, // РЅР° СЃР»СѓС‡Р°Р№, РµСЃР»Рё РІРЅСѓС‚СЂРё Р¶РґСѓС‚ snake_case
 
       sessionContext: {
-        restaurantId, // и сюда тоже, если логика смотрит в sessionContext
+        restaurantId, // Рё СЃСЋРґР° С‚РѕР¶Рµ, РµСЃР»Рё Р»РѕРіРёРєР° СЃРјРѕС‚СЂРёС‚ РІ sessionContext
         session,
         deviceProfile,
         order,
@@ -271,7 +276,7 @@ async function runNLU({
 
     return {
       ...nlu,
-  // ✅ всегда нормализуем из нового NLU
+  // вњ… РІСЃРµРіРґР° РЅРѕСЂРјР°Р»РёР·СѓРµРј РёР· РЅРѕРІРѕРіРѕ NLU
   emotion: nlu.emotion ?? nlu.meta?.emotion ?? 'neutral',
   language: nlu.language ?? nlu.meta?.language ?? 'unknown',
   clarificationNeeded:
@@ -281,7 +286,7 @@ async function runNLU({
     console.error('[DialogManager] New NLU failed, fallback to legacy:', err);
   }
 
-  // --- Фолбек: legacy NLU, как работало до этого ---
+  // --- Р¤РѕР»Р±РµРє: legacy NLU, РєР°Рє СЂР°Р±РѕС‚Р°Р»Рѕ РґРѕ СЌС‚РѕРіРѕ ---
     const legacy = await legacyParseUserMessage(normalizedText, {
     session,
     deviceProfile,
@@ -306,7 +311,7 @@ async function runNLU({
 
   const out = legacy || baseResult;
 
-  // Нормализуем legacy → единый контракт (как у нового NLU)
+  // РќРѕСЂРјР°Р»РёР·СѓРµРј legacy в†’ РµРґРёРЅС‹Р№ РєРѕРЅС‚СЂР°РєС‚ (РєР°Рє Сѓ РЅРѕРІРѕРіРѕ NLU)
   const emotion = out?.emotion ?? out?.meta?.emotion ?? 'neutral';
   const language = out?.language ?? out?.meta?.language ?? 'unknown';
   const clarificationNeeded =
@@ -328,14 +333,14 @@ async function runNLU({
 
 
 /**
- * Правила выбора языка ответа:
- * 1) язык по тексту (NLU meta.language / nlu.language)
- * 2) язык из долгосрочной памяти устройства (deviceMemory.languagePreferences.primary)
- * 3) clientLanguage (UI hint) — только как последний fallback
+ * РџСЂР°РІРёР»Р° РІС‹Р±РѕСЂР° СЏР·С‹РєР° РѕС‚РІРµС‚Р°:
+ * 1) СЏР·С‹Рє РїРѕ С‚РµРєСЃС‚Сѓ (NLU meta.language / nlu.language)
+ * 2) СЏР·С‹Рє РёР· РґРѕР»РіРѕСЃСЂРѕС‡РЅРѕР№ РїР°РјСЏС‚Рё СѓСЃС‚СЂРѕР№СЃС‚РІР° (deviceMemory.languagePreferences.primary)
+ * 3) clientLanguage (UI hint) вЂ” С‚РѕР»СЊРєРѕ РєР°Рє РїРѕСЃР»РµРґРЅРёР№ fallback
  * 4) 'en'
  */
 function chooseLanguage(nlu, deviceMemory, clientLanguage = null) {
-  // 1) Кандидат из NLU (главный)
+  // 1) РљР°РЅРґРёРґР°С‚ РёР· NLU (РіР»Р°РІРЅС‹Р№)
   let candidate = null;
 
   const nluLangRaw =
@@ -350,7 +355,7 @@ function chooseLanguage(nlu, deviceMemory, clientLanguage = null) {
     }
   }
 
-  // 2) Язык из долгосрочной памяти устройства
+  // 2) РЇР·С‹Рє РёР· РґРѕР»РіРѕСЃСЂРѕС‡РЅРѕР№ РїР°РјСЏС‚Рё СѓСЃС‚СЂРѕР№СЃС‚РІР°
   if (!candidate) {
     const pref = deviceMemory?.languagePreferences?.primary;
     if (typeof pref === 'string' && pref.trim()) {
@@ -358,7 +363,7 @@ function chooseLanguage(nlu, deviceMemory, clientLanguage = null) {
     }
   }
 
-  // 3) UI hint (clientLanguage) — только если вообще ничего не известно
+  // 3) UI hint (clientLanguage) вЂ” С‚РѕР»СЊРєРѕ РµСЃР»Рё РІРѕРѕР±С‰Рµ РЅРёС‡РµРіРѕ РЅРµ РёР·РІРµСЃС‚РЅРѕ
   if (!candidate && typeof clientLanguage === 'string' && clientLanguage.trim()) {
     const norm = clientLanguage.trim().toLowerCase();
     if (norm !== 'unknown' && norm !== 'mixed') {
@@ -372,23 +377,23 @@ function chooseLanguage(nlu, deviceMemory, clientLanguage = null) {
 
 
 /**
- * Heuristic: user asks if a specific item exists in menu ("Do you have kombucha?", "у вас есть ...?")
+ * Heuristic: user asks if a specific item exists in menu ("Do you have kombucha?", "Сѓ РІР°СЃ РµСЃС‚СЊ ...?")
  * We treat it as availability question to show a different text and do category-first suggestions.
  */
 function isAvailabilityQuestion(text) {
   const t = String(text || '').trim().toLowerCase();
 
   // RU
-  if (/(^|\s)(у\s+вас\s+есть|есть\s+ли|имеется|в\s+наличии)(\s|$)/i.test(t)) return true;
+  if (/(^|\s)(Сѓ\s+РІР°СЃ\s+РµСЃС‚СЊ|РµСЃС‚СЊ\s+Р»Рё|РёРјРµРµС‚СЃСЏ|РІ\s+РЅР°Р»РёС‡РёРё)(\s|$)/i.test(t)) return true;
 
   // UA
-  if (/(^|\s)(у\s+вас\s+є|чи\s+є|є\s+в\s+меню|маєте)(\s|$)/i.test(t)) return true;
+  if (/(^|\s)(Сѓ\s+РІР°СЃ\s+С”|С‡Рё\s+С”|С”\s+РІ\s+РјРµРЅСЋ|РјР°С”С‚Рµ)(\s|$)/i.test(t)) return true;
 
   // EN
   if (/(^|\s)(do\s+you\s+have|have\s+you\s+got|is\s+there|do\s+you\s+serve)(\s|$)/i.test(t)) return true;
 
   // generic question form
-  if (t.endsWith('?') && /(есть|є|have)\b/i.test(t)) return true;
+  if (t.endsWith('?') && /(РµСЃС‚СЊ|С”|have)\b/i.test(t)) return true;
 
   return false;
 }
@@ -402,31 +407,110 @@ function detectAvailabilityCategoryHint(text) {
   const t = String(text || '').trim().toLowerCase();
 
   // Drinks
-  if (/(комбуч|kombuch|напит|drink|beverage|cola|coke|лимонад|lemonade|чай|tea|кофе|coffee|water|juice|сок)/i.test(t)) {
+  if (/(РєРѕРјР±СѓС‡|kombuch|РЅР°РїРёС‚|drink|beverage|cola|coke|Р»РёРјРѕРЅР°Рґ|lemonade|С‡Р°Р№|tea|РєРѕС„Рµ|coffee|water|juice|СЃРѕРє)/i.test(t)) {
     return 'drink';
   }
 
   // Desserts / sweet
-  if (/(десерт|dessert|sweet|cake|торт|морозив|ice\s*cream|моти|mochi)/i.test(t)) {
+  if (/(РґРµСЃРµСЂС‚|dessert|sweet|cake|С‚РѕСЂС‚|РјРѕСЂРѕР·РёРІ|ice\s*cream|РјРѕС‚Рё|mochi)/i.test(t)) {
     return 'dessert';
   }
 
   // Snacks
-  if (/(закуск|snack|аппетайзер|appetizer|popcorn|попкорн|fries|картошк)/i.test(t)) {
+  if (/(Р·Р°РєСѓСЃРє|snack|Р°РїРїРµС‚Р°Р№Р·РµСЂ|appetizer|popcorn|РїРѕРїРєРѕСЂРЅ|fries|РєР°СЂС‚РѕС€Рє)/i.test(t)) {
     return 'snack';
   }
 
   // Main dishes
-  if (/(основн|main\s*dish|main|steak|стейк|roll|ролл|роллы|ramen|рамен|udon|удон|sushi|суши|soup|суп|noodl|лапш)/i.test(t)) {
+  if (/(РѕСЃРЅРѕРІРЅ|main\s*dish|main|steak|СЃС‚РµР№Рє|roll|СЂРѕР»Р»|СЂРѕР»Р»С‹|ramen|СЂР°РјРµРЅ|udon|СѓРґРѕРЅ|sushi|СЃСѓС€Рё|soup|СЃСѓРї|noodl|Р»Р°РїС€)/i.test(t)) {
     return 'main';
   }
 
   // Light
-  if (/(легк|light|salad|салат)/i.test(t)) {
+  if (/(Р»РµРіРє|light|salad|СЃР°Р»Р°С‚)/i.test(t)) {
     return 'light';
   }
 
   return null;
+}
+
+function detectConceptHintWords(queryUnderstanding) {
+  const concepts = Array.isArray(queryUnderstanding?.concepts)
+    ? queryUnderstanding.concepts
+    : [];
+  const out = new Set();
+
+  for (const concept of concepts) {
+    const cfg = getConceptConfig(concept);
+    if (!cfg) continue;
+    if (concept === 'tequila') out.add('tequila');
+    if (concept === 'chicken') out.add('chicken');
+    if (concept === 'meat') out.add('meat');
+    if (concept === 'noodles') out.add('noodles');
+    if (concept === 'burger') out.add('burger');
+    for (const t of cfg.requiredTokens || []) {
+      if (String(t || '').length >= 4) out.add(String(t));
+    }
+  }
+
+  return Array.from(out);
+}
+
+async function buildRecommendationsFromSuggestions(suggestions = [], limit = 4) {
+  return dedupeByCode(
+    (Array.isArray(suggestions) ? suggestions : [])
+      .slice(0, limit)
+      .map((s) => ({
+        code: s.item_code || s.code,
+        name: s.name || s.name_en || s.name_local || s.item_code || s.code,
+        unitPrice: s.price != null ? Number(s.price) : null,
+        imageUrl: s.image_url || s.imageUrl || null,
+      }))
+      .filter((s) => Boolean(s.code))
+  );
+}
+
+async function getQueryRecommendations({
+  session,
+  language,
+  normalizedText,
+  queryUnderstanding,
+  suggestionLimit = 4,
+  availabilityQ = false,
+  availabilityHint = null,
+}) {
+  let suggestions = [];
+  if (availabilityQ && availabilityHint) {
+    suggestions = await suggestMenuItems(session.restaurant_id, {
+      query: `${availabilityHint} ${normalizedText}`.trim(),
+      locale: language,
+      limit: suggestionLimit,
+    });
+  }
+
+  if (!suggestions || suggestions.length === 0) {
+    const conceptHints = detectConceptHintWords(queryUnderstanding);
+    for (const hint of conceptHints) {
+      const rows = await suggestMenuItems(session.restaurant_id, {
+        query: hint,
+        locale: language,
+        limit: suggestionLimit,
+      });
+      if (Array.isArray(rows) && rows.length > 0) {
+        suggestions = [...(suggestions || []), ...rows];
+      }
+    }
+  }
+
+  if (!suggestions || suggestions.length === 0) {
+    suggestions = await suggestMenuItems(session.restaurant_id, {
+      query: normalizedText,
+      locale: language,
+      limit: suggestionLimit,
+    });
+  }
+
+  return buildRecommendationsFromSuggestions(suggestions, suggestionLimit);
 }
 
 function buildNoAddFallbackText(understanding, hasSuggestions) {
@@ -446,21 +530,31 @@ function buildNoAddFallbackText(understanding, hasSuggestions) {
       ? 'Here are meat dishes you may like.'
       : "I couldn't find meat dishes right now. Tell me which meat you prefer: beef, chicken, duck, or pork.";
   }
+  if (concepts.includes('chicken')) {
+    return hasSuggestions
+      ? 'Here are chicken dishes you may like.'
+      : "I couldn't find chicken dishes right now.";
+  }
+  if (concepts.includes('tequila')) {
+    return hasSuggestions
+      ? 'Here are tequila options.'
+      : "I couldn't find tequila options right now.";
+  }
   return hasSuggestions
     ? "I couldn't safely add an exact item yet, but here are the closest options."
-    : "I couldn't detect a specific menu item to add. Please name an exact dish.";
+    : "I couldn't detect an exact dish. Please specify the exact menu item you want to add.";
 }
 
 
 
 
 /**
- * Вытаскиваем аллергии из результата NLU (новый формат items.*.allergensRisk + старый entities.allergies).
+ * Р’С‹С‚Р°СЃРєРёРІР°РµРј Р°Р»Р»РµСЂРіРёРё РёР· СЂРµР·СѓР»СЊС‚Р°С‚Р° NLU (РЅРѕРІС‹Р№ С„РѕСЂРјР°С‚ items.*.allergensRisk + СЃС‚Р°СЂС‹Р№ entities.allergies).
  */
 function extractAllergiesFromNLU(nlu) {
   if (!nlu) return [];
 
-  // Новый формат: items[].allergensRisk
+  // РќРѕРІС‹Р№ С„РѕСЂРјР°С‚: items[].allergensRisk
   if (Array.isArray(nlu.items)) {
     const set = new Set();
     for (const it of nlu.items) {
@@ -475,7 +569,7 @@ function extractAllergiesFromNLU(nlu) {
     }
   }
 
-  // Старый формат
+  // РЎС‚Р°СЂС‹Р№ С„РѕСЂРјР°С‚
   if (nlu.entities && Array.isArray(nlu.entities.allergies)) {
     return nlu.entities.allergies.map((a) => String(a || '').toLowerCase());
   }
@@ -486,114 +580,32 @@ function extractAllergiesFromNLU(nlu) {
 
 
 /**
- * Строим текст ответа с резюме заказа
+ * РЎС‚СЂРѕРёРј С‚РµРєСЃС‚ РѕС‚РІРµС‚Р° СЃ СЂРµР·СЋРјРµ Р·Р°РєР°Р·Р°
  */
 /**
- * Строим текст ответа с резюме заказа (EN-only).
- * Переводом занимается NLG-слой.
+ * РЎС‚СЂРѕРёРј С‚РµРєСЃС‚ РѕС‚РІРµС‚Р° СЃ СЂРµР·СЋРјРµ Р·Р°РєР°Р·Р° (EN-only).
+ * РџРµСЂРµРІРѕРґРѕРј Р·Р°РЅРёРјР°РµС‚СЃСЏ NLG-СЃР»РѕР№.
  */
 function buildOrderReplyText(order) {
-  const items = order.items || [];
-  const total = order.total_amount;
-
-  let text = 'You ordered:\n\n';
-  items.forEach((item, idx) => {
-    const name = item.item_name || item.item_code || 'item';
-    const qty = item.quantity || 1;
-    text += `${idx + 1}. ${qty} × ${name} (per menu)\n`;
-  });
-  text += `\nTotal amount: ${total}₴.\n\n`;
-  text +=
-    'To confirm this order, press the "Confirm order" button below. If you want to add or change something — just type it here.';
-  return text;
-}
-
-
-/**
- * Построить предупреждение по аллергенам для текущего заказа (EN-only).
- * Переводом занимается NLG-слой.
- */
-async function buildAllergyWarningForOrder(session, nlu, order, deviceMemory) {
-  if (!order || !order.items || order.items.length === 0) return '';
-
-  const restaurantId = session?.restaurant_id;
-  if (!restaurantId) return '';
-
-  const itemCodes = Array.from(
-    new Set(
-      order.items
-        .map((it) => it.item_code)
-        .filter((code) => typeof code === 'string' && code.length > 0)
-    )
-  );
-  if (itemCodes.length === 0) return '';
-
-  const baseAllergies = (deviceMemory && Array.isArray(deviceMemory.allergies))
-    ? deviceMemory.allergies
-    : (session?.device_id ? await getDeviceAllergies(session.device_id) : []);
-
-  const nluAllergies = extractAllergiesFromNLU(nlu);
-
-  const mergedAllergies = Array.from(
-    new Set([...(baseAllergies || []), ...nluAllergies])
-  );
-  if (mergedAllergies.length === 0) return '';
-
-  const check = await checkAllergensForItems(restaurantId, itemCodes, mergedAllergies);
-  const dangerous = check.filter((item) => !item.is_safe);
-  if (dangerous.length === 0) return '';
-
-  const itemNames = dangerous.map((d) => d.name_en || d.item_code);
-
-  const allergensMentioned = Array.from(
-    new Set(dangerous.flatMap((d) => d.matched_allergens))
-  );
-
-  return (
-    '\n\n⚠️ *Allergy warning*\n' +
-    `Your order contains items that may include your allergens (${allergensMentioned.join(
-      ', '
-    )}): ${itemNames.join(', ')}.\n` +
-    'If this is critical for you, please double-check with the waiter.'
-  );
+  return buildOrderReplyTextSafe(order);
 }
 
 /**
- * Упаковываем заказ в удобный формат для фронта (карточки заказа).
+ * РЈРїР°РєРѕРІС‹РІР°РµРј Р·Р°РєР°Р· РІ СѓРґРѕР±РЅС‹Р№ С„РѕСЂРјР°С‚ РґР»СЏ С„СЂРѕРЅС‚Р° (РєР°СЂС‚РѕС‡РєРё Р·Р°РєР°Р·Р°).
  */
 function buildOrderDraftForResponse(order) {
-  if (!order) return null;
-
-  return {
-    id: order.id,
-    status: order.status,
-    tableId: order.table_id,
-    totalAmount:
-      typeof order.total_amount === 'number'
-        ? order.total_amount
-        : parseFloat(order.total_amount || '0') || 0,
-    items: (order.items || []).map((it) => ({
-      id: it.id,
-      code: it.item_code,
-      name: it.item_name,
-      quantity: it.quantity,
-      unitPrice: it.unit_price,
-      modifiers: it.modifiers,
-      notes: it.notes,
-      menuItemId: it.menu_item_id,
-    })),
-  };
+  return buildOrderDraftForResponseSafe(order);
 }
 
 
 /**
- * Главная точка входа: обработка сообщения пользователя.
+ * Р“Р»Р°РІРЅР°СЏ С‚РѕС‡РєР° РІС…РѕРґР°: РѕР±СЂР°Р±РѕС‚РєР° СЃРѕРѕР±С‰РµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ.
  *
  * @param {object} params
  * @param {string} params.text
  * @param {object} params.session
  * @param {object} [params.deviceProfile]
- * @param {object} [params.order]        — текущий черновой заказ (если есть)
+ * @param {object} [params.order]        вЂ” С‚РµРєСѓС‰РёР№ С‡РµСЂРЅРѕРІРѕР№ Р·Р°РєР°Р· (РµСЃР»Рё РµСЃС‚СЊ)
  * @param {string} [params.deviceId]
  */
 
@@ -628,7 +640,7 @@ export async function processUserMessage({
       : Promise.resolve({ orders: [] }),
   ]);
 
-  // 1) NLU (новый + фолбек на legacy) + метрики + мягкий fallback
+  // 1) NLU (РЅРѕРІС‹Р№ + С„РѕР»Р±РµРє РЅР° legacy) + РјРµС‚СЂРёРєРё + РјСЏРіРєРёР№ fallback
   let nlu = null;
   const nluStart = Date.now();
 
@@ -646,7 +658,7 @@ export async function processUserMessage({
 
     await insertPerformanceMetric({
       metricName: 'nlu.run',
-      scope: 'chat', // для голосового ассистента мы логируем отдельно
+      scope: 'chat', // РґР»СЏ РіРѕР»РѕСЃРѕРІРѕРіРѕ Р°СЃСЃРёСЃС‚РµРЅС‚Р° РјС‹ Р»РѕРіРёСЂСѓРµРј РѕС‚РґРµР»СЊРЅРѕ
       durationMs: Date.now() - nluStart,
       labels: {
         source: 'chat',
@@ -681,7 +693,7 @@ export async function processUserMessage({
   'Sorry, I cannot process your request right now. Please call a live waiter.';
 
 const language = chooseLanguage(null, deviceMemory ?? null, clientLanguage);
- // если nlu здесь нет — можно отдельно задефолтить 'en'
+ // РµСЃР»Рё nlu Р·РґРµСЃСЊ РЅРµС‚ вЂ” РјРѕР¶РЅРѕ РѕС‚РґРµР»СЊРЅРѕ Р·Р°РґРµС„РѕР»С‚РёС‚СЊ 'en'
 
 const reply = await respondInLanguage({
   baseTextEn,
@@ -710,7 +722,7 @@ return {
 
     const language = chooseLanguage(nlu, deviceMemory ?? null, clientLanguage);
 
-  // Обновляем language_preferences в long-term памяти, если гость переключил язык
+  // РћР±РЅРѕРІР»СЏРµРј language_preferences РІ long-term РїР°РјСЏС‚Рё, РµСЃР»Рё РіРѕСЃС‚СЊ РїРµСЂРµРєР»СЋС‡РёР» СЏР·С‹Рє
   const primaryLang = language;
   if (effectiveDeviceId && primaryLang && deviceMemory) {
     const prevLang = deviceMemory.languagePreferences?.primary;
@@ -727,7 +739,7 @@ return {
   }
 
 
-  // 2) Готовим заказ для резольвера: если нет items — подгружаем их из БД
+  // 2) Р“РѕС‚РѕРІРёРј Р·Р°РєР°Р· РґР»СЏ СЂРµР·РѕР»СЊРІРµСЂР°: РµСЃР»Рё РЅРµС‚ items вЂ” РїРѕРґРіСЂСѓР¶Р°РµРј РёС… РёР· Р‘Р”
   let orderForResolver = order;
   try {
     if (
@@ -743,7 +755,7 @@ return {
     );
   }
 
-  // 3) Загружаем dialog_state и резолвим контекстные ссылки
+  // 3) Р—Р°РіСЂСѓР¶Р°РµРј dialog_state Рё СЂРµР·РѕР»РІРёРј РєРѕРЅС‚РµРєСЃС‚РЅС‹Рµ СЃСЃС‹Р»РєРё
   const dialogState = await getDialogState(session.id);
 
   const resolved = resolveReferences({
@@ -769,7 +781,7 @@ return {
     });
   }
 
-    // ✅ Если пользователь пошёл дальше (не confirm/reject upsell) — не показываем старый upsell снова
+    // вњ… Р•СЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РїРѕС€С‘Р» РґР°Р»СЊС€Рµ (РЅРµ confirm/reject upsell) вЂ” РЅРµ РїРѕРєР°Р·С‹РІР°РµРј СЃС‚Р°СЂС‹Р№ upsell СЃРЅРѕРІР°
   if (resolvedIntent !== 'confirm' && resolvedIntent !== 'confirm_upsell' && resolvedIntent !== 'reject_upsell') {
     try {
       await clearLastUpsellForSession(session.id);
@@ -779,12 +791,12 @@ return {
   }
 
 
-  // сохраняем новый фокус (contextPatch) в dialog_state
+  // СЃРѕС…СЂР°РЅСЏРµРј РЅРѕРІС‹Р№ С„РѕРєСѓСЃ (contextPatch) РІ dialog_state
   if (resolved && resolved.contextPatch) {
     await upsertDialogState(session.id, resolved.contextPatch);
   }
 
-  // Логируем эмоции, если NLU их нашёл
+  // Р›РѕРіРёСЂСѓРµРј СЌРјРѕС†РёРё, РµСЃР»Рё NLU РёС… РЅР°С€С‘Р»
   if (nlu.emotion) {
     await logEvent(
       'emotion_detected',
@@ -799,7 +811,7 @@ return {
   let reply = '';
   let orderForResponse = order || null;
 
-  // 🔹 UI-апсел для текущего сообщения (по умолчанию нет)
+  // рџ”№ UI-Р°РїСЃРµР» РґР»СЏ С‚РµРєСѓС‰РµРіРѕ СЃРѕРѕР±С‰РµРЅРёСЏ (РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РЅРµС‚)
   let uiUpsell = null;
 
   try {
@@ -815,8 +827,8 @@ return {
         categoryId: requestedCategory.id,
         limit: 12,
       });
-      const recommendations = (recommendationsRaw || []).filter((it) =>
-        Boolean(it?.code)
+      const recommendations = dedupeByCode(
+        (recommendationsRaw || []).filter((it) => Boolean(it?.code))
       );
 
       const categoryLabel =
@@ -846,7 +858,7 @@ return {
     console.error('[DialogManager] custom category resolution failed', err);
   }
 
-  // 4) Обработка интентов (через resolvedIntent)
+  // 4) РћР±СЂР°Р±РѕС‚РєР° РёРЅС‚РµРЅС‚РѕРІ (С‡РµСЂРµР· resolvedIntent)
   switch (resolvedIntent) {
     case 'greeting': {
   const baseTextEn =
@@ -914,11 +926,11 @@ case 'ask_menu': {
 
   // --- Heuristic: user asks to describe a specific dish by name (even if NLU didn't resolve menu_item_id)
 const dishInfoPatterns = [
-  /^расскажи про\s+/i,
-  /^расскажи о\s+/i,
-  /^что такое\s+/i,
-  /^что за\s+/i,
-  /^опиши\s+/i,
+  /^СЂР°СЃСЃРєР°Р¶Рё РїСЂРѕ\s+/i,
+  /^СЂР°СЃСЃРєР°Р¶Рё Рѕ\s+/i,
+  /^С‡С‚Рѕ С‚Р°РєРѕРµ\s+/i,
+  /^С‡С‚Рѕ Р·Р°\s+/i,
+  /^РѕРїРёС€Рё\s+/i,
   /^tell me about\s+/i,
   /^describe\s+/i,
 ];
@@ -973,32 +985,18 @@ if (extractedDishQuery && extractedDishQuery.length >= 3) {
   const availabilityHint =
     availabilityQ && !hasConcepts ? detectAvailabilityCategoryHint(normalizedText) : null;
 
-  // We want fewer options in UI:
-  // - recommendations: up to 4 items
-  // - availability questions: also up to 4 items, but category-first
   const suggestionLimit = 4;
+  const recommendations = await getQueryRecommendations({
+    session,
+    language,
+    normalizedText,
+    queryUnderstanding,
+    suggestionLimit,
+    availabilityQ,
+    availabilityHint,
+  });
 
-  // Category-first for availability questions:
-  // We pass a hint word so menuService's tags-first path activates (drink -> drink, dessert -> dessert, etc.)
-  let suggestions = [];
-  if (availabilityQ && availabilityHint) {
-    suggestions = await suggestMenuItems(session.restaurant_id, {
-      query: `${availabilityHint} ${normalizedText}`.trim(),
-      locale: language,
-      limit: suggestionLimit,
-    });
-  }
-
-  // Fallback to normal semantic suggestions (unchanged behaviour, just new limit)
-  if (!suggestions || suggestions.length === 0) {
-    suggestions = await suggestMenuItems(session.restaurant_id, {
-      query: normalizedText,
-      locale: language,
-      limit: suggestionLimit,
-    });
-  }
-
-if (!suggestions || suggestions.length === 0) {
+if (!recommendations || recommendations.length === 0) {
     const baseTextEn = buildNoAddFallbackText(queryUnderstanding, false);
     const reply = await respondInLanguage({
       baseTextEn,
@@ -1006,17 +1004,6 @@ if (!suggestions || suggestions.length === 0) {
     });
     return { nlu, handled: true, reply, order: orderForResponse };
   }
-
-  // ✅ NEW: structured recommendations for UI cards (no auto-add)
-  const recommendations = suggestions
-    .slice(0, suggestionLimit)
-    .map((s) => ({
-      code: s.item_code, // must exist for UI add
-      name: s.name || s.item_code,
-      unitPrice: s.price != null ? Number(s.price) : null,
-      imageUrl: s.image_url || null,
-    }))
-    .filter((s) => Boolean(s.code));
 
   const baseTextEn = availabilityQ
     ? buildNoAddFallbackText(queryUnderstanding, true)
@@ -1027,13 +1014,13 @@ if (!suggestions || suggestions.length === 0) {
     targetLanguage: language,
   });
 
-  // ✅ Return recommendations separately (frontend renders cards + plus buttons)
+  // вњ… Return recommendations separately (frontend renders cards + plus buttons)
   return { nlu, handled: true, reply, order: orderForResponse, recommendations };
 }
 
 case 'smalltalk': {
   const baseTextEn =
-    "I'm here 😊 Tell me what you feel like (spicy, salty, sweet, drink, dessert) or just name a dish — I can recommend and take the order.";
+    "I'm here рџЉ Tell me what you feel like (spicy, salty, sweet, drink, dessert) or just name a dish вЂ” I can recommend and take the order.";
   const reply = await respondInLanguage({
     baseTextEn,
     targetLanguage: language,
@@ -1042,7 +1029,7 @@ case 'smalltalk': {
 }
 
 case 'farewell': {
-  const baseTextEn = 'No worries — see you soon!';
+  const baseTextEn = 'No worries вЂ” see you soon!';
   const reply = await respondInLanguage({
     baseTextEn,
     targetLanguage: language,
@@ -1086,7 +1073,7 @@ case 'allergy_info': {
       'Still, for critical cases, please double-check with the live waiter.';
   } else {
     baseTextEn =
-      "You mentioned allergies. I'll keep that in mind, but for now I don’t have a full allergen map for all dishes.\n" +
+      "You mentioned allergies. I'll keep that in mind, but for now I donвЂ™t have a full allergen map for all dishes.\n" +
       'For anything critical, please double-check with the waiter.';
   }
 
@@ -1130,7 +1117,7 @@ case 'allergy_info': {
       let updatedOrder;
       let addedItems = [];
 
-      if (mutationPolicy.mode === 'add' && actions.length) {
+      if (mutationPolicy.mode === 'add_exact' && actions.length) {
         if (!order || !order.id) {
           const draft = await getOrCreateDraftOrderForSession(session);
           orderForResponse = draft;
@@ -1147,12 +1134,16 @@ case 'allergy_info': {
           (fullBefore.items || []).map((it) => it.id)
         );
 
+        const allowedExactIds = new Set(
+          Array.isArray(mutationPolicy?.exactItemIds) ? mutationPolicy.exactItemIds : []
+        );
+
         for (const act of actions) {
           if (!act || act.type !== 'add_item') continue;
 
-          const { menuItemId, quantity, modifiers, matchConfidence } = act.payload || {};
+          const { menuItemId, quantity, modifiers } = act.payload || {};
           if (!menuItemId) continue;
-          if (!Number.isFinite(Number(matchConfidence)) || Number(matchConfidence) < Number(process.env.AI_AUTO_ADD_CONFIDENCE_THRESHOLD || 0.84)) {
+          if (!allowedExactIds.has(menuItemId)) {
             continue;
           }
 
@@ -1174,24 +1165,19 @@ case 'allergy_info': {
 
       if (!updatedOrder || !addedItems || addedItems.length === 0) {
         const suggestionLimit = 4;
-        const suggestions = await suggestMenuItems(session.restaurant_id, {
-          query: normalizedText,
-          locale: language,
-          limit: suggestionLimit,
+        const recommendations = await getQueryRecommendations({
+          session,
+          language,
+          normalizedText,
+          queryUnderstanding,
+          suggestionLimit,
+          availabilityQ: false,
+          availabilityHint: null,
         });
-        const recommendations = (suggestions || [])
-          .slice(0, suggestionLimit)
-          .map((s) => ({
-            code: s.item_code,
-            name: s.name || s.item_code,
-            unitPrice: s.price != null ? Number(s.price) : null,
-            imageUrl: s.image_url || null,
-          }))
-          .filter((s) => Boolean(s.code));
 
         if (process.env.AI_MATCH_DEBUG === '1') {
           console.log('[AI_MATCH_DEBUG][dialog:add_or_suggest]', {
-            decision: 'SUGGEST',
+            decision: mutationPolicy.mode === 'ask_clarify' ? 'ASK_CLARIFY' : 'SUGGEST_LIST',
             reason: mutationPolicy.reason,
             topCandidates: recommendations.slice(0, 5).map((r) => ({
               code: r.code,
@@ -1200,10 +1186,10 @@ case 'allergy_info': {
           });
         }
 
-        const baseTextEn = buildNoAddFallbackText(
-          queryUnderstanding,
-          recommendations.length > 0
-        );
+        const baseTextEn =
+          mutationPolicy.mode === 'ask_clarify' && recommendations.length === 0
+            ? "Please name the exact menu item you want to add."
+            : buildNoAddFallbackText(queryUnderstanding, recommendations.length > 0);
 
         const reply = await respondInLanguage({
           baseTextEn,
@@ -1269,7 +1255,7 @@ const upsellPack = await getChatUpsellSuggestion({
   deviceId,
   deviceMemory,
   allergies: deviceMemory?.allergies || [],
-  limitTopN: 3, // ✅ top-N candidates stored + exploration pool
+  limitTopN: 3, // вњ… top-N candidates stored + exploration pool
   context: { time_ctx: timeCtx, weather, emotion: emotionVal, language, epsilon: settings?.upsell_default_epsilon },
 });
 
@@ -1302,7 +1288,7 @@ if (positionInFlow > MAX_UPSELL_PER_SESSION) {
    !skipReason &&
    MIN_GAP_MINUTES > 0 &&
    lastUpsellState?.last_upsell_created_at &&
-   lastUpsellState?.last_upsell_code // ✅ важнейшее: gap считаем только если upsell реально показывали
+   lastUpsellState?.last_upsell_code // вњ… РІР°Р¶РЅРµР№С€РµРµ: gap СЃС‡РёС‚Р°РµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё upsell СЂРµР°Р»СЊРЅРѕ РїРѕРєР°Р·С‹РІР°Р»Рё
  ) {
   const lastAt = new Date(lastUpsellState.last_upsell_created_at);
   if (!Number.isNaN(lastAt.getTime())) {
@@ -1315,7 +1301,7 @@ if (positionInFlow > MAX_UPSELL_PER_SESSION) {
 }
 
 
-// 2) no candidates/top empty (важнее, чем invalid picked)
+// 2) no candidates/top empty (РІР°Р¶РЅРµРµ, С‡РµРј invalid picked)
 if (
   !skipReason &&
   (!upsellPack || !Array.isArray(upsellPack.top) || upsellPack.top.length === 0)
@@ -1323,7 +1309,7 @@ if (
   skipReason = 'no_candidates';
 }
 
-// 3) invalid picked (no item_code) — только если top вообще был
+// 3) invalid picked (no item_code) вЂ” С‚РѕР»СЊРєРѕ РµСЃР»Рё top РІРѕРѕР±С‰Рµ Р±С‹Р»
 if (!skipReason && !upsellCode) {
   skipReason = 'invalid_candidate';
 }
@@ -1360,7 +1346,7 @@ const unsafe = (check || []).some(
 if (!skipReason && upsellCode) {
 
   // 0b) Text (EN-only) from reason_code + context, then localized via NLG
-// STEP 4: Safe NLG — text is built only from intent + slots (+ persona/emotion), NOT from reason_code
+// STEP 4: Safe NLG вЂ” text is built only from intent + slots (+ persona/emotion), NOT from reason_code
 const upsellBaseName = addedItems[0]?.item_name || addedItems[0]?.item_code || null;
 
 const intent = typeof upsell?.message_intent === 'string' && upsell.message_intent.trim()
@@ -1402,8 +1388,8 @@ const upsellText = await respondInLanguage({
         : parseFloat(updatedOrder.total_amount || '0') || 0,
   };
 
-  // 3) логируем событие upsell_shown (и получаем eventId)
-  // 3) логируем событие upsell_shown (и получаем eventId)
+  // 3) Р»РѕРіРёСЂСѓРµРј СЃРѕР±С‹С‚РёРµ upsell_shown (Рё РїРѕР»СѓС‡Р°РµРј eventId)
+  // 3) Р»РѕРіРёСЂСѓРµРј СЃРѕР±С‹С‚РёРµ upsell_shown (Рё РїРѕР»СѓС‡Р°РµРј eventId)
   const picked = upsell || null; 
 
 const ml = normalizeMlMeta(
@@ -1419,7 +1405,7 @@ const reasonCode = picked?.reason_code ?? null;
       restaurant_id: session.restaurant_id,
       device_id: deviceId ?? session.device_id,
       session_id: session.id,
-      // ✅ NEW structured (Step 6/7)
+      // вњ… NEW structured (Step 6/7)
       meta: { language, emotion: emotionVal },
       ml,
       features: upsellPack?.features ?? null,
@@ -1429,12 +1415,12 @@ const reasonCode = picked?.reason_code ?? null;
       reason_code: reasonCode,
       upsell_text_en: upsellTextEn,
       upsell_text_localized: upsellText,
-      // ✅ Context as-is
+      // вњ… Context as-is
       order_snapshot: orderSnapshot,
       position_in_flow: positionInFlow,
       time_context: timeCtx || null,
       weather: weather || null,
-      // ✅ LEGACY flat (ничего не ломаем)
+      // вњ… LEGACY flat (РЅРёС‡РµРіРѕ РЅРµ Р»РѕРјР°РµРј)
       language,
       emotion: emotionVal,
       suggested_item_code: picked?.item_code ?? null,
@@ -1449,9 +1435,9 @@ const reasonCode = picked?.reason_code ?? null;
   );
 
 
-  // 4) сохраняем “последний апселл” в dialog_state (чтобы "да" сработало позже)
+  // 4) СЃРѕС…СЂР°РЅСЏРµРј вЂњРїРѕСЃР»РµРґРЅРёР№ Р°РїСЃРµР»Р»вЂќ РІ dialog_state (С‡С‚РѕР±С‹ "РґР°" СЃСЂР°Р±РѕС‚Р°Р»Рѕ РїРѕР·Р¶Рµ)
   await setLastUpsellForSession(session.id, {
-  // новый формат
+  // РЅРѕРІС‹Р№ С„РѕСЂРјР°С‚
   itemCode: picked?.item_code,
   itemName: picked?.item_name || picked?.item_code || null,
   textEn: upsellTextEn,
@@ -1465,7 +1451,7 @@ const reasonCode = picked?.reason_code ?? null;
   language,
   emotion: emotionVal,
 
-  // legacy формат (чтобы confirm/reject точно работали)
+  // legacy С„РѕСЂРјР°С‚ (С‡С‚РѕР±С‹ confirm/reject С‚РѕС‡РЅРѕ СЂР°Р±РѕС‚Р°Р»Рё)
   last_upsell_code: picked?.item_code,
   last_upsell_item_name: picked?.item_name || picked?.item_code || null,
   last_upsell_text_en: upsellTextEn,
@@ -1482,8 +1468,8 @@ const reasonCode = picked?.reason_code ?? null;
 });
 
 
-  // 5) UI upsell для текущего ответа
-  // ⬇️ показываем 1–3 предложений (но НЕ меняем сам выбор bandit-стратегии)
+  // 5) UI upsell РґР»СЏ С‚РµРєСѓС‰РµРіРѕ РѕС‚РІРµС‚Р°
+  // в¬‡пёЏ РїРѕРєР°Р·С‹РІР°РµРј 1вЂ“3 РїСЂРµРґР»РѕР¶РµРЅРёР№ (РЅРѕ РќР• РјРµРЅСЏРµРј СЃР°Рј РІС‹Р±РѕСЂ bandit-СЃС‚СЂР°С‚РµРіРёРё)
   const uiCount = desiredUpsellUiCount(updatedOrder);
   const uiCandidates = buildUiUpsellCandidates({
     upsellPack,
@@ -1533,12 +1519,12 @@ const reasonCode = picked?.reason_code ?? null;
     });
 
     uiItems.push({
-      // для assistant-widget.js
+      // РґР»СЏ assistant-widget.js
       code,
       name: c?.item_name || code,
       trust_text: trustText,
 
-      // для других потребителей/аналитики
+      // РґР»СЏ РґСЂСѓРіРёС… РїРѕС‚СЂРµР±РёС‚РµР»РµР№/Р°РЅР°Р»РёС‚РёРєРё
       itemCode: code,
       itemName: c?.item_name || code,
       trust_text_en: trustTextEn,
@@ -1555,7 +1541,7 @@ const reasonCode = picked?.reason_code ?? null;
 
 
 } else if (skipReason) {
-  // Step 7.2: ironclad dataset — log why we did NOT show upsell
+  // Step 7.2: ironclad dataset вЂ” log why we did NOT show upsell
 const mlSkipped = normalizeMlMeta(
   upsellPack?.ml ?? upsellPack?.strategy ?? upsellPack?.strategy_name ?? null
 );
@@ -1651,7 +1637,7 @@ picked_by: mlSkippedFixed.picked_by,
 
       orderForResponse = updatedOrder;
 
-      // ---- блок любимых блюд оставляем как был ----
+      // ---- Р±Р»РѕРє Р»СЋР±РёРјС‹С… Р±Р»СЋРґ РѕСЃС‚Р°РІР»СЏРµРј РєР°Рє Р±С‹Р» ----
       if (effectiveDeviceId && deviceMemory) {
         const counts = new Map();
 
@@ -1701,13 +1687,13 @@ picked_by: mlSkippedFixed.picked_by,
         });
       }
 
-      // 5) И только здесь вызываем NLG-слой
+      // 5) Р С‚РѕР»СЊРєРѕ Р·РґРµСЃСЊ РІС‹Р·С‹РІР°РµРј NLG-СЃР»РѕР№
       const reply = await respondInLanguage({
         baseTextEn,
         targetLanguage: language,
       });
 
-      // 👉 Возвращаем uiUpsell наружу
+      // рџ‘‰ Р’РѕР·РІСЂР°С‰Р°РµРј uiUpsell РЅР°СЂСѓР¶Сѓ
       return {
         nlu,
         handled: true,
@@ -1735,15 +1721,15 @@ case 'modify_order': {
 
   const actions = resolved?.actions || [];
 
-  // 1) Нет actions от контекстного резольвера — старый путь
+  // 1) РќРµС‚ actions РѕС‚ РєРѕРЅС‚РµРєСЃС‚РЅРѕРіРѕ СЂРµР·РѕР»СЊРІРµСЂР° вЂ” СЃС‚Р°СЂС‹Р№ РїСѓС‚СЊ
   if (!actions.length) {
     const { order: updatedOrder, removedItems } =
       await handleModifyOrderFromNLU(session, nlu);
 
     if (!updatedOrder || !removedItems || removedItems.length === 0) {
 
-          // ✅ Safety-net: если NLU сматчил блюда (items[].menu_item_id),
-    // но modify_order ничего не изменил — это почти всегда "дозаказ", а не "редактирование".
+          // вњ… Safety-net: РµСЃР»Рё NLU СЃРјР°С‚С‡РёР» Р±Р»СЋРґР° (items[].menu_item_id),
+    // РЅРѕ modify_order РЅРёС‡РµРіРѕ РЅРµ РёР·РјРµРЅРёР» вЂ” СЌС‚Рѕ РїРѕС‡С‚Рё РІСЃРµРіРґР° "РґРѕР·Р°РєР°Р·", Р° РЅРµ "СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ".
     const addCandidates = (Array.isArray(nlu?.items) ? nlu.items : [])
       .map((it) => ({
         menuItemId: it?.menu_item_id,
@@ -1759,7 +1745,7 @@ case 'modify_order': {
         try {
           const { item } = await addItemToOrder(orderId, c.menuItemId, {
             quantity: c.quantity && c.quantity > 0 ? c.quantity : 1,
-            modifiers: {}, // modifiers из NLU тут можно добавить позже, сейчас безопасно пусто
+            modifiers: {}, // modifiers РёР· NLU С‚СѓС‚ РјРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ РїРѕР·Р¶Рµ, СЃРµР№С‡Р°СЃ Р±РµР·РѕРїР°СЃРЅРѕ РїСѓСЃС‚Рѕ
             language,
           });
           if (item) addedItems.push(item);
@@ -1777,7 +1763,7 @@ case 'modify_order': {
           .map((it) => {
             const q = it.quantity ?? 1;
             const name = it.item_name || it.item_code || 'item';
-            return `${q} × ${name}`;
+            return `${q} Г— ${name}`;
           })
           .join('\n');
 
@@ -1789,7 +1775,7 @@ case 'modify_order': {
         const baseTextEn =
           'Added to your order:\n\n' +
           addedText +
-          `\n\nCurrent total: ${total}₴.\n\nWant to add anything else?`;
+          `\n\nCurrent total: ${total}в‚ґ.\n\nWant to add anything else?`;
 
         const reply = await respondInLanguage({
           baseTextEn,
@@ -1812,7 +1798,7 @@ case 'modify_order': {
 
 
       const baseTextEn =
-        'I tried to update your order, but didn’t find such items in your current bill. If you want, I can show what is currently in your order.';
+        'I tried to update your order, but didnвЂ™t find such items in your current bill. If you want, I can show what is currently in your order.';
 
       const reply = await respondInLanguage({
         baseTextEn,
@@ -1828,9 +1814,9 @@ case 'modify_order': {
         const name = item.item_name || item.item_code || 'item';
         const price =
           typeof item.unit_price === 'number'
-            ? `${item.unit_price}₴`
+            ? `${item.unit_price}в‚ґ`
             : 'per menu';
-        return `${q} × ${name} (${price})`;
+        return `${q} Г— ${name} (${price})`;
       })
       .join('\n');
 
@@ -1843,7 +1829,7 @@ case 'modify_order': {
       'I removed from your order:\n\n' +
       removedText +
       '\n\n' +
-      `New total amount: ${total}₴.\n\nIf you want to change anything else — just type it here.`;
+      `New total amount: ${total}в‚ґ.\n\nIf you want to change anything else вЂ” just type it here.`;
 
     const reply = await respondInLanguage({
       baseTextEn,
@@ -1854,7 +1840,7 @@ case 'modify_order': {
     return { nlu, handled: true, reply, order: orderForResponse };
   }
 
-  // 2) Новый путь: actions из ContextResolver
+  // 2) РќРѕРІС‹Р№ РїСѓС‚СЊ: actions РёР· ContextResolver
   const orderId = order.id;
 
   let fullBefore = order;
@@ -1932,9 +1918,9 @@ case 'modify_order': {
         const name = item.item_name || item.item_code || 'item';
         const price =
           typeof item.unit_price === 'number'
-            ? `${item.unit_price}₴`
+            ? `${item.unit_price}в‚ґ`
             : 'per menu';
-        return `${q} × ${name} (${price})`;
+        return `${q} Г— ${name} (${price})`;
       })
       .join('\n');
 
@@ -1959,7 +1945,7 @@ case 'modify_order': {
       'I tried to update your order, but nothing actually changed. If you want, you can clarify what exactly to change.';
   } else {
     partsEn.push(
-      `\n\nNew total amount: ${total}₴.\n\nIf you want to change anything else — just type it here.`
+      `\n\nNew total amount: ${total}в‚ґ.\n\nIf you want to change anything else вЂ” just type it here.`
     );
     baseTextEn = partsEn.join('\n\n');
   }
@@ -1978,7 +1964,7 @@ case 'submit_order': {
 
   if (!activeOrder || !Array.isArray(activeOrder.items) || activeOrder.items.length === 0) {
     const baseTextEn =
-      "I don’t see any items in your order yet. Tell me what you’d like to order, and I’ll add it for you.";
+      "I donвЂ™t see any items in your order yet. Tell me what youвЂ™d like to order, and IвЂ™ll add it for you.";
 
     const reply = await respondInLanguage({
       baseTextEn,
@@ -2035,7 +2021,7 @@ case 'submit_order': {
     let baseTextEn;
     if (err.code === 'EMPTY_ORDER') {
       baseTextEn =
-        "I can’t submit an empty order. Please tell me what you’d like to order.";
+        "I canвЂ™t submit an empty order. Please tell me what youвЂ™d like to order.";
     } else if (
       err.code === 'FRAUD_QUANTITY_SINGLE' ||
       err.code === 'FRAUD_QUANTITY_TOTAL'
@@ -2044,7 +2030,7 @@ case 'submit_order': {
         'This order looks unusually large. Please ask a live waiter to confirm it.';
     } else {
       baseTextEn =
-        'Sorry, I couldn’t submit the order due to a technical issue. Please ask a live waiter to help.';
+        'Sorry, I couldnвЂ™t submit the order due to a technical issue. Please ask a live waiter to help.';
     }
 
     const reply = await respondInLanguage({
@@ -2070,17 +2056,17 @@ case 'cancel_order': {
 
   if (!activeOrder) {
     baseTextEn =
-      'I don’t see any active order to cancel right now. If there is already something served, please tell a live waiter.';
+      'I donвЂ™t see any active order to cancel right now. If there is already something served, please tell a live waiter.';
   } else if (
     activeOrder.status === 'submitted' ||
     activeOrder.status === 'in_kitchen' ||
     activeOrder.status === 'ready'
   ) {
     baseTextEn =
-      'I can’t cancel an order that has already been sent to the restaurant. Please tell a live waiter about any changes.';
+      'I canвЂ™t cancel an order that has already been sent to the restaurant. Please tell a live waiter about any changes.';
   } else {
     baseTextEn =
-      'Your order is still in draft. You can tell me what exactly to change or remove, and I’ll update it.';
+      'Your order is still in draft. You can tell me what exactly to change or remove, and IвЂ™ll update it.';
   }
 
   const reply = await respondInLanguage({
@@ -2102,7 +2088,7 @@ case 'confirm_upsell': {
 
   if (!lastUpsell || !lastUpsell.last_upsell_code) {
     const baseTextEn =
-      'I wasn’t suggesting anything extra right now. If you want to add something, just write what exactly.';
+      'I wasnвЂ™t suggesting anything extra right now. If you want to add something, just write what exactly.';
 
     const reply = await respondInLanguage({
       baseTextEn,
@@ -2175,9 +2161,9 @@ case 'confirm_upsell': {
       const name = item.item_name || item.item_code || 'item';
       const price =
         typeof item.unit_price === 'number'
-          ? `${item.unit_price}₴`
+          ? `${item.unit_price}в‚ґ`
           : 'per menu';
-      return `${q} × ${name} (${price})`;
+      return `${q} Г— ${name} (${price})`;
     })
     .join('\n');
 
@@ -2188,8 +2174,8 @@ case 'confirm_upsell': {
 
   const baseTextEn =
     `I've added to your order:\n\n${itemsText}\n\n` +
-    `Updated total amount: ${total}₴.\n\n` +
-    'If you want to change or add anything else — just type it here.';
+    `Updated total amount: ${total}в‚ґ.\n\n` +
+    'If you want to change or add anything else вЂ” just type it here.';
 
   const reply = await respondInLanguage({
     baseTextEn,
@@ -2240,7 +2226,7 @@ case 'reject_upsell': {
   await clearLastUpsellForSession(session.id);
 
   const baseTextEn =
-    'No problem, we keep your order as it is 🙂 If you want to add something later — just type it here.';
+    'No problem, we keep your order as it is рџ™‚ If you want to add something later вЂ” just type it here.';
 
   const reply = await respondInLanguage({
     baseTextEn,
@@ -2254,7 +2240,7 @@ case 'reject_upsell': {
 
 case 'info': {
   const baseTextEn =
-    'Ask me anything about the menu, ingredients or the ordering format — I’ll try to answer.';
+    'Ask me anything about the menu, ingredients or the ordering format вЂ” IвЂ™ll try to answer.';
 
   const reply = await respondInLanguage({
     baseTextEn,
@@ -2268,7 +2254,7 @@ case 'info': {
 case 'unknown':
 default: {
   const baseTextEn =
-    'I didn’t fully understand your request yet. Could you phrase it more simply? For example: “I want a lemonade”, “Recommend a dessert” or “I’m allergic to nuts”.';
+    'I didnвЂ™t fully understand your request yet. Could you phrase it more simply? For example: вЂњI want a lemonadeвЂќ, вЂњRecommend a dessertвЂќ or вЂњIвЂ™m allergic to nutsвЂќ.';
 
   const reply = await respondInLanguage({
     baseTextEn,
@@ -2284,7 +2270,7 @@ default: {
 
 
 export async function handleUserMessage({ sessionToken, text, source, clientLanguage }) {
-  const dmStart = Date.now(); // время начала работы Dialog Manager
+  const dmStart = Date.now(); // РІСЂРµРјСЏ РЅР°С‡Р°Р»Р° СЂР°Р±РѕС‚С‹ Dialog Manager
   const rawText = (text || '').toString();
   const normalizedSource = source || 'chat';
 
@@ -2317,7 +2303,7 @@ export async function handleUserMessage({ sessionToken, text, source, clientLang
     };
   }
 
-  // Обновляем last_activity, как раньше делал sessionAuth
+  // РћР±РЅРѕРІР»СЏРµРј last_activity, РєР°Рє СЂР°РЅСЊС€Рµ РґРµР»Р°Р» sessionAuth
   try {
     await touchSession(session.id);
   } catch (err) {
@@ -2335,22 +2321,22 @@ export async function handleUserMessage({ sessionToken, text, source, clientLang
     }
   }
 
-  // ---------- КЛЮЧЕВОЕ: current_order (draft / submitted) ----------
+  // ---------- РљР›Р®Р§Р•Р’РћР•: current_order (draft / submitted) ----------
 
-// ---------- КЛЮЧЕВОЕ: current_order (draft / submitted) ----------
+// ---------- РљР›Р®Р§Р•Р’РћР•: current_order (draft / submitted) ----------
 
 let currentOrder = null;
 
 try {
-  // Пытаемся найти последний «активный» заказ для сессии (draft/submitted/in_kitchen/ready).
-  // ВАЖНО: модифицировать через чат можно ТОЛЬКО draft.
+  // РџС‹С‚Р°РµРјСЃСЏ РЅР°Р№С‚Рё РїРѕСЃР»РµРґРЅРёР№ В«Р°РєС‚РёРІРЅС‹Р№В» Р·Р°РєР°Р· РґР»СЏ СЃРµСЃСЃРёРё (draft/submitted/in_kitchen/ready).
+  // Р’РђР–РќРћ: РјРѕРґРёС„РёС†РёСЂРѕРІР°С‚СЊ С‡РµСЂРµР· С‡Р°С‚ РјРѕР¶РЅРѕ РўРћР›Р¬РљРћ draft.
   currentOrder = await getCurrentActiveOrderForSession(session);
 } catch (err) {
   console.error('[DialogManager] Failed to get current active order', err);
 }
 
-// Если последний активный заказ уже не draft (например, после submit) — начинаем новый draft.
-// Это позволяет пользователю делать сколько угодно заказов в рамках одной сессии.
+// Р•СЃР»Рё РїРѕСЃР»РµРґРЅРёР№ Р°РєС‚РёРІРЅС‹Р№ Р·Р°РєР°Р· СѓР¶Рµ РЅРµ draft (РЅР°РїСЂРёРјРµСЂ, РїРѕСЃР»Рµ submit) вЂ” РЅР°С‡РёРЅР°РµРј РЅРѕРІС‹Р№ draft.
+// Р­С‚Рѕ РїРѕР·РІРѕР»СЏРµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЋ РґРµР»Р°С‚СЊ СЃРєРѕР»СЊРєРѕ СѓРіРѕРґРЅРѕ Р·Р°РєР°Р·РѕРІ РІ СЂР°РјРєР°С… РѕРґРЅРѕР№ СЃРµСЃСЃРёРё.
 if (currentOrder && currentOrder.status !== 'draft') {
   try {
     currentOrder = await getOrCreateDraftOrderForSession(session);
@@ -2362,7 +2348,7 @@ if (currentOrder && currentOrder.status !== 'draft') {
   }
 }
 
-// Если вообще нет заказа — создаём новый draft
+// Р•СЃР»Рё РІРѕРѕР±С‰Рµ РЅРµС‚ Р·Р°РєР°Р·Р° вЂ” СЃРѕР·РґР°С‘Рј РЅРѕРІС‹Р№ draft
 if (!currentOrder) {
   try {
     currentOrder = await getOrCreateDraftOrderForSession(session);
@@ -2372,7 +2358,7 @@ if (!currentOrder) {
 }
 
 
-  // Если вообще нет заказа — создаём новый draft
+  // Р•СЃР»Рё РІРѕРѕР±С‰Рµ РЅРµС‚ Р·Р°РєР°Р·Р° вЂ” СЃРѕР·РґР°С‘Рј РЅРѕРІС‹Р№ draft
   if (!currentOrder) {
     try {
       currentOrder = await getOrCreateDraftOrderForSession(session);
@@ -2383,7 +2369,7 @@ if (!currentOrder) {
 
   // ---------------------------------------------------------------
 
-  // Логируем входящее сообщение
+  // Р›РѕРіРёСЂСѓРµРј РІС…РѕРґСЏС‰РµРµ СЃРѕРѕР±С‰РµРЅРёРµ
   try {
     await logEvent(
       'chat_message_in',
@@ -2394,7 +2380,7 @@ if (!currentOrder) {
     console.error('[DialogManager] Failed to log chat_message_in', err);
   }
 
-  // Вся основная логика — внутри processUserMessage
+  // Р’СЃСЏ РѕСЃРЅРѕРІРЅР°СЏ Р»РѕРіРёРєР° вЂ” РІРЅСѓС‚СЂРё processUserMessage
   const result = await processUserMessage({
     text: rawText,
     session,
@@ -2406,8 +2392,8 @@ if (!currentOrder) {
 
   const finalOrder = result.order || currentOrder || null;
 
-  // Upsell suggestions из dialog_state
-    // Upsell suggestions из dialog_state
+  // Upsell suggestions РёР· dialog_state
+    // Upsell suggestions РёР· dialog_state
   let upsellSuggestions = [];
   let upsellTextEnFromState = null;
   let lastUpsell = null;
@@ -2444,25 +2430,25 @@ if (!currentOrder) {
 
   const replyText = result.reply ?? null;
 
-  // 🔹 забираем uiUpsell из result, если кейс order/add_to_order его вернул
+  // рџ”№ Р·Р°Р±РёСЂР°РµРј uiUpsell РёР· result, РµСЃР»Рё РєРµР№СЃ order/add_to_order РµРіРѕ РІРµСЂРЅСѓР»
   const uiUpsell = result.uiUpsell || null;
 
-    // ✅ NEW: recommendations from ask_menu (for UI cards)
+    // вњ… NEW: recommendations from ask_menu (for UI cards)
   const recommendations = Array.isArray(result?.recommendations)
-    ? result.recommendations
+    ? dedupeByCode(result.recommendations)
     : null;
 
 
-  // 🔹 Новый: orderDraft для карточек
+  // рџ”№ РќРѕРІС‹Р№: orderDraft РґР»СЏ РєР°СЂС‚РѕС‡РµРє
   const orderDraft =
     finalOrder && finalOrder.status === 'draft'
       ? buildOrderDraftForResponse(finalOrder)
       : null;
 
-  // 🔹 Новый: upsell-блок для UI
+  // рџ”№ РќРѕРІС‹Р№: upsell-Р±Р»РѕРє РґР»СЏ UI
   let upsell = null;
 
-  // 1) В приоритете — uiUpsell для текущего сообщения
+  // 1) Р’ РїСЂРёРѕСЂРёС‚РµС‚Рµ вЂ” uiUpsell РґР»СЏ С‚РµРєСѓС‰РµРіРѕ СЃРѕРѕР±С‰РµРЅРёСЏ
   if (
     uiUpsell &&
     Array.isArray(uiUpsell.items) &&
@@ -2470,29 +2456,33 @@ if (!currentOrder) {
   ) {
     upsell = {
       text: uiUpsell.text || null,
-      items: uiUpsell.items.map((u) => ({
+      items: dedupeByCode(
+        uiUpsell.items.map((u) => ({
         code: u.itemCode || u.code,
         name:
           u.itemName ||
           u.name ||
           u.itemCode ||
           u.code ||
-          'Без назви',
-      })),
+          'Р‘РµР· РЅР°Р·РІРё',
+        }))
+      ),
     };
   } else if (upsellSuggestions.length > 0) {
-    // 2) Fallback — из dialog_state (например, на следующем шаге, когда гость отвечает "да, давай")
+    // 2) Fallback вЂ” РёР· dialog_state (РЅР°РїСЂРёРјРµСЂ, РЅР° СЃР»РµРґСѓСЋС‰РµРј С€Р°РіРµ, РєРѕРіРґР° РіРѕСЃС‚СЊ РѕС‚РІРµС‡Р°РµС‚ "РґР°, РґР°РІР°Р№")
      upsell = {
-    text: lastUpsell?.last_upsell_text || upsellTextEnFromState || null,  // ✅ вот так
-    items: upsellSuggestions.map((u) => ({
-      code: u.itemCode,
-      name: u.itemName,
-    })),
+    text: lastUpsell?.last_upsell_text || upsellTextEnFromState || null,  // вњ… РІРѕС‚ С‚Р°Рє
+    items: dedupeByCode(
+      upsellSuggestions.map((u) => ({
+        code: u.itemCode,
+        name: u.itemName,
+      }))
+    ),
     };
   }
 
 
-  // 🔹 Новый: meta.language — по данным NLU
+  // рџ”№ РќРѕРІС‹Р№: meta.language вЂ” РїРѕ РґР°РЅРЅС‹Рј NLU
   const meta = {
     language:
       result?.nlu?.meta?.language ||
@@ -2500,12 +2490,12 @@ if (!currentOrder) {
       null,
   };
 
-  // 🔹 НОВЫЙ БЛОК: обогащаем orderDraft и upsell ценой и фото из меню
+  // рџ”№ РќРћР’Р«Р™ Р‘Р›РћРљ: РѕР±РѕРіР°С‰Р°РµРј orderDraft Рё upsell С†РµРЅРѕР№ Рё С„РѕС‚Рѕ РёР· РјРµРЅСЋ
   try {
     const restaurantId = session.restaurant_id;
     const codesSet = new Set();
 
-    // Собираем все item_code из драфта заказа
+    // РЎРѕР±РёСЂР°РµРј РІСЃРµ item_code РёР· РґСЂР°С„С‚Р° Р·Р°РєР°Р·Р°
     if (orderDraft && Array.isArray(orderDraft.items)) {
       for (const it of orderDraft.items) {
         if (it.code) {
@@ -2514,7 +2504,7 @@ if (!currentOrder) {
       }
     }
 
-    // И из апсела
+    // Р РёР· Р°РїСЃРµР»Р°
     if (upsell && Array.isArray(upsell.items)) {
       for (const u of upsell.items) {
         if (u.code) {
@@ -2523,7 +2513,7 @@ if (!currentOrder) {
       }
     }
 
-        // ✅ And from recommendations (ask_menu UI cards)
+        // вњ… And from recommendations (ask_menu UI cards)
     if (recommendations && Array.isArray(recommendations)) {
       for (const r of recommendations) {
         const code = r?.code || r?.item_code;
@@ -2535,14 +2525,14 @@ if (!currentOrder) {
     if (restaurantId && codesSet.size > 0) {
       const codes = Array.from(codesSet);
 
-      // Тянем базовую цену и фото по кодам
+      // РўСЏРЅРµРј Р±Р°Р·РѕРІСѓСЋ С†РµРЅСѓ Рё С„РѕС‚Рѕ РїРѕ РєРѕРґР°Рј
       const menuItems = await getMenuItemsBasicByCodes(restaurantId, codes);
 
       const metaByCode = {};
       for (const row of menuItems) {
         let photos = row.photos;
 
-        // На всякий случай, если драйвер вернул строку JSON
+        // РќР° РІСЃСЏРєРёР№ СЃР»СѓС‡Р°Р№, РµСЃР»Рё РґСЂР°Р№РІРµСЂ РІРµСЂРЅСѓР» СЃС‚СЂРѕРєСѓ JSON
         if (typeof photos === 'string') {
           try {
             photos = JSON.parse(photos);
@@ -2559,14 +2549,14 @@ if (!currentOrder) {
         };
       }
 
-      // Обогащаем orderDraft.items
+      // РћР±РѕРіР°С‰Р°РµРј orderDraft.items
       if (orderDraft && Array.isArray(orderDraft.items)) {
         orderDraft.items = orderDraft.items.map((it) => {
           const meta = metaByCode[it.code] || {};
           return {
             ...it,
-            // приоритет: цена из заказа (вдруг скидка/ручная цена),
-            // если её нет — берём из меню
+            // РїСЂРёРѕСЂРёС‚РµС‚: С†РµРЅР° РёР· Р·Р°РєР°Р·Р° (РІРґСЂСѓРі СЃРєРёРґРєР°/СЂСѓС‡РЅР°СЏ С†РµРЅР°),
+            // РµСЃР»Рё РµС‘ РЅРµС‚ вЂ” Р±РµСЂС‘Рј РёР· РјРµРЅСЋ
             unitPrice:
               typeof it.unitPrice === 'number' && !Number.isNaN(it.unitPrice)
                 ? it.unitPrice
@@ -2576,7 +2566,7 @@ if (!currentOrder) {
         });
       }
 
-      // Обогащаем upsell.items
+      // РћР±РѕРіР°С‰Р°РµРј upsell.items
       if (upsell && Array.isArray(upsell.items)) {
         upsell.items = upsell.items.map((u) => {
           const meta = metaByCode[u.code] || {};
@@ -2587,7 +2577,7 @@ if (!currentOrder) {
           };
         });
       }
-            // ✅ Enrich recommendations (ask_menu UI cards)
+            // вњ… Enrich recommendations (ask_menu UI cards)
       if (recommendations && Array.isArray(recommendations)) {
         for (const r of recommendations) {
           const code = r?.code || r?.item_code;
@@ -2613,7 +2603,7 @@ if (!currentOrder) {
     );
   }
 
-  // Логируем исходящее сообщение
+  // Р›РѕРіРёСЂСѓРµРј РёСЃС…РѕРґСЏС‰РµРµ СЃРѕРѕР±С‰РµРЅРёРµ
   try {
     await logEvent(
       'chat_message_out',
@@ -2624,7 +2614,7 @@ if (!currentOrder) {
     console.error('[DialogManager] Failed to log chat_message_out', err);
   }
 
-  // ⬇️ Логируем время работы Dialog Manager
+  // в¬‡пёЏ Р›РѕРіРёСЂСѓРµРј РІСЂРµРјСЏ СЂР°Р±РѕС‚С‹ Dialog Manager
   try {
     await insertPerformanceMetric({
       metricName: 'dialog.handleUserMessage',
@@ -2644,18 +2634,19 @@ if (!currentOrder) {
   } catch (err) {
     console.error('[DialogManager] Failed to log performance metric', err);
   }
-  // ⬆️ конец блока метрик
+  // в¬†пёЏ РєРѕРЅРµС† Р±Р»РѕРєР° РјРµС‚СЂРёРє
 
     return {
     replyText,
     actions,
     nlu: result.nlu ?? null,
-    order: finalOrder,   // legacy-формат
-    orderDraft,          // новый блок для карточек
-    upsell,              // уже с unitPrice + imageUrl
+    order: finalOrder,   // legacy-С„РѕСЂРјР°С‚
+    orderDraft,          // РЅРѕРІС‹Р№ Р±Р»РѕРє РґР»СЏ РєР°СЂС‚РѕС‡РµРє
+    upsell,              // СѓР¶Рµ СЃ unitPrice + imageUrl
     recommendations: (recommendations && recommendations.length ? recommendations : null),
     meta,
   };
 
 }
+
 

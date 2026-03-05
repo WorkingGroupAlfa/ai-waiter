@@ -1,14 +1,28 @@
 // src/ai/orderDecisionPolicy.js
-// Safety policy for deciding when AI can mutate cart vs only suggest.
+// Safety policy for deciding when AI can mutate cart vs suggest/clarify.
 
 export const DEFAULT_AUTO_ADD_CONFIDENCE = Number(
   process.env.AI_AUTO_ADD_CONFIDENCE_THRESHOLD || 0.84
 );
+export const DEFAULT_VERY_HIGH_EXACT_CONFIDENCE = Number(
+  process.env.AI_AUTO_ADD_EXACT_THRESHOLD || 0.92
+);
 
 const EXPLICIT_ORDER_PATTERNS = [
-  /\b(add|order|i'll take|i will take|give me|bring me|can i get|can i have)\b/i,
-  /\b(додай|додати|замов|хочу замовити|закажи|заказать|принеси)\b/i,
+  /\b(add|order|i'll take|i will take|give me|bring me|can i get|can i have|i want)\b/i,
+  /(^|\s)(хочу|мне|давай|я буду|закаж|заказать|замов|додай|додати|принеси)(\s|$)/i,
 ];
+
+const EXACT_MATCH_SOURCES = new Set([
+  'name_exact',
+  'name_fuzzy',
+  'name_fuzzy_drink',
+  'ai_synonyms_db',
+  'deterministic_scoring',
+  'deterministic_exact',
+  'item_code_exact',
+  'alias_exact',
+]);
 
 function isExplicitOrderAction(text) {
   const src = String(text || '').trim();
@@ -23,39 +37,98 @@ export function decideOrderMutationPolicy({
   clarificationNeeded = false,
   queryUnderstanding = null,
   threshold = DEFAULT_AUTO_ADD_CONFIDENCE,
+  exactThreshold = DEFAULT_VERY_HIGH_EXACT_CONFIDENCE,
 }) {
   const intent = String(resolvedIntent || '').toLowerCase();
   if (intent !== 'order' && intent !== 'add_to_order') {
-    return { mode: 'suggest', reason: 'non_order_intent', explicitOrderAction: false, eligibleItems: [] };
+    return {
+      mode: 'suggest_list',
+      reason: 'non_order_intent',
+      explicitOrderAction: false,
+      eligibleItems: [],
+      exactItemIds: [],
+    };
   }
 
   const explicitOrderAction = isExplicitOrderAction(text);
-  const strictOrCategoryConcepts = Array.isArray(queryUnderstanding?.concepts)
+  const concepts = Array.isArray(queryUnderstanding?.concepts)
     ? queryUnderstanding.concepts
     : [];
+  const pool = Array.isArray(nluItems) ? nluItems : [];
 
-  const eligibleItems = (Array.isArray(nluItems) ? nluItems : []).filter((item) => {
+  const eligibleItems = pool.filter((item) => {
     const conf = Number(item?.matchConfidence || 0);
     return item?.menu_item_id && Number.isFinite(conf) && conf >= threshold;
   });
 
+  const exactCandidates = pool.filter((item) => {
+    const conf = Number(item?.matchConfidence || 0);
+    const src = String(item?.matchSource || '').trim().toLowerCase();
+    const exactBySource = EXACT_MATCH_SOURCES.has(src);
+    const exactByFlag = Boolean(item?.isExactMatch);
+    return (
+      item?.menu_item_id &&
+      Number.isFinite(conf) &&
+      conf >= exactThreshold &&
+      (exactBySource || exactByFlag)
+    );
+  });
+
   if (!explicitOrderAction) {
-    return { mode: 'suggest', reason: 'not_explicit_order_action', explicitOrderAction, eligibleItems };
-  }
-
-  if (clarificationNeeded) {
-    return { mode: 'suggest', reason: 'clarification_needed', explicitOrderAction, eligibleItems };
-  }
-
-  if (eligibleItems.length === 0) {
     return {
-      mode: 'suggest',
-      reason: strictOrCategoryConcepts.length > 0 ? 'category_or_oov_query' : 'no_high_confidence_items',
+      mode: 'suggest_list',
+      reason: 'not_explicit_order_action',
       explicitOrderAction,
       eligibleItems,
+      exactItemIds: [],
     };
   }
 
-  return { mode: 'add', reason: 'high_confidence_and_explicit_order', explicitOrderAction, eligibleItems };
-}
+  if (exactCandidates.length === 1) {
+    return {
+      mode: 'add_exact',
+      reason: 'exact_match_fast_path',
+      explicitOrderAction,
+      eligibleItems,
+      exactItemIds: [exactCandidates[0].menu_item_id],
+    };
+  }
 
+  if (clarificationNeeded) {
+    return {
+      mode: 'suggest_list',
+      reason: 'clarification_needed',
+      explicitOrderAction,
+      eligibleItems,
+      exactItemIds: [],
+    };
+  }
+
+  if (concepts.length > 0 || eligibleItems.length > 1) {
+    return {
+      mode: 'suggest_list',
+      reason: concepts.length > 0 ? 'category_or_preference_query' : 'multiple_candidates',
+      explicitOrderAction,
+      eligibleItems,
+      exactItemIds: [],
+    };
+  }
+
+  if (eligibleItems.length === 1) {
+    return {
+      mode: 'ask_clarify',
+      reason: 'single_non_exact_candidate_requires_confirmation',
+      explicitOrderAction,
+      eligibleItems,
+      exactItemIds: [],
+    };
+  }
+
+  return {
+    mode: concepts.length > 0 ? 'suggest_list' : 'ask_clarify',
+    reason: concepts.length > 0 ? 'category_or_oov_query' : 'no_high_confidence_items',
+    explicitOrderAction,
+    eligibleItems,
+    exactItemIds: [],
+  };
+}

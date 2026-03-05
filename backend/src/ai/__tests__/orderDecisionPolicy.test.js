@@ -4,11 +4,37 @@ import assert from 'node:assert/strict';
 import { buildQueryUnderstanding } from '../queryUnderstanding.js';
 import { decideOrderMutationPolicy } from '../orderDecisionPolicy.js';
 
-function makeItem({ menu_item_id = null, matchConfidence = 0, rawText = '' } = {}) {
-  return { menu_item_id, matchConfidence, rawText };
+function makeItem({
+  menu_item_id = null,
+  matchConfidence = 0,
+  matchSource = '',
+  rawText = '',
+} = {}) {
+  return { menu_item_id, matchConfidence, matchSource, rawText };
 }
 
-test('"I want noodles" routes to suggestions and blocks cart mutation', () => {
+test('exact match fast path enables add_exact for explicit order', () => {
+  const understanding = buildQueryUnderstanding('хочу попкорн из креветок', { localeHint: 'ru' });
+  const decision = decideOrderMutationPolicy({
+    resolvedIntent: 'order',
+    text: 'хочу попкорн из креветок',
+    nluItems: [
+      makeItem({
+        rawText: 'попкорн из креветок',
+        menu_item_id: 'm1',
+        matchConfidence: 0.97,
+        matchSource: 'name_exact',
+      }),
+    ],
+    clarificationNeeded: false,
+    queryUnderstanding: understanding,
+  });
+
+  assert.equal(decision.mode, 'add_exact');
+  assert.deepEqual(decision.exactItemIds, ['m1']);
+});
+
+test('"I want noodles" routes to suggest_list and blocks cart mutation', () => {
   const understanding = buildQueryUnderstanding('I want noodles', { localeHint: 'en' });
   const decision = decideOrderMutationPolicy({
     resolvedIntent: 'order',
@@ -17,10 +43,10 @@ test('"I want noodles" routes to suggestions and blocks cart mutation', () => {
     clarificationNeeded: true,
     queryUnderstanding: understanding,
   });
-  assert.equal(decision.mode, 'suggest');
+  assert.equal(decision.mode, 'suggest_list');
 });
 
-test('"I want burger" routes to suggestions and blocks cart mutation', () => {
+test('"I want burger" routes to suggest_list and blocks cart mutation', () => {
   const understanding = buildQueryUnderstanding('I want burger', { localeHint: 'en' });
   const decision = decideOrderMutationPolicy({
     resolvedIntent: 'order',
@@ -29,10 +55,10 @@ test('"I want burger" routes to suggestions and blocks cart mutation', () => {
     clarificationNeeded: true,
     queryUnderstanding: understanding,
   });
-  assert.equal(decision.mode, 'suggest');
+  assert.equal(decision.mode, 'suggest_list');
 });
 
-test('"I want meat" routes to suggestions and blocks cart mutation', () => {
+test('"I want meat" routes to suggest_list and blocks cart mutation', () => {
   const understanding = buildQueryUnderstanding('I want meat', { localeHint: 'en' });
   const decision = decideOrderMutationPolicy({
     resolvedIntent: 'order',
@@ -41,30 +67,55 @@ test('"I want meat" routes to suggestions and blocks cart mutation', () => {
     clarificationNeeded: true,
     queryUnderstanding: understanding,
   });
-  assert.equal(decision.mode, 'suggest');
+  assert.equal(decision.mode, 'suggest_list');
 });
 
-test('"Do you have meat dishes?" routes to suggestions and blocks cart mutation', () => {
-  const understanding = buildQueryUnderstanding('Do you have meat dishes?', { localeHint: 'en' });
+test('single high-confidence non-exact candidate requires clarification', () => {
+  const understanding = buildQueryUnderstanding('I want tuna', { localeHint: 'en' });
   const decision = decideOrderMutationPolicy({
-    resolvedIntent: 'ask_menu',
-    text: 'Do you have meat dishes?',
+    resolvedIntent: 'add_to_order',
+    text: 'I want tuna',
+    nluItems: [
+      makeItem({
+        rawText: 'tuna',
+        menu_item_id: 'm2',
+        matchConfidence: 0.89,
+        matchSource: 'embedding',
+      }),
+    ],
+    clarificationNeeded: false,
+    queryUnderstanding: understanding,
+  });
+  assert.equal(decision.mode, 'ask_clarify');
+});
+
+test('tequila preference without exact item routes to suggest_list', () => {
+  const understanding = buildQueryUnderstanding('Хочу текилу', { localeHint: 'ru' });
+  const decision = decideOrderMutationPolicy({
+    resolvedIntent: 'order',
+    text: 'Хочу текилу',
     nluItems: [],
     clarificationNeeded: false,
     queryUnderstanding: understanding,
   });
-  assert.equal(decision.mode, 'suggest');
+  assert.equal(decision.mode, 'suggest_list');
 });
 
-test('explicit high-confidence order allows add', () => {
-  const understanding = buildQueryUnderstanding('Add tuna nigiri', { localeHint: 'en' });
+test('very-high fuzzy drink match still uses add_exact fast path', () => {
+  const understanding = buildQueryUnderstanding('хочу водку grey goose', { localeHint: 'ru' });
   const decision = decideOrderMutationPolicy({
-    resolvedIntent: 'add_to_order',
-    text: 'Add tuna nigiri',
-    nluItems: [makeItem({ rawText: 'tuna nigiri', menu_item_id: 'm1', matchConfidence: 0.93 })],
+    resolvedIntent: 'order',
+    text: 'хочу водку grey goose',
+    nluItems: [
+      makeItem({
+        rawText: 'grey goose',
+        menu_item_id: 'm42',
+        matchConfidence: 0.95,
+        matchSource: 'name_fuzzy_drink',
+      }),
+    ],
     clarificationNeeded: false,
     queryUnderstanding: understanding,
   });
-  assert.equal(decision.mode, 'add');
+  assert.equal(decision.mode, 'add_exact');
 });
-
