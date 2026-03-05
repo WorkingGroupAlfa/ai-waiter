@@ -17,7 +17,12 @@ import { loadPersona } from '../services/aiPersonaService.js';
 import { insertPerformanceMetric } from '../models/performanceMetricsModel.js';
 
 import { parseUserInput, parseUserMessage as legacyParseUserMessage } from './nluService.js';
-import { buildQueryUnderstanding, getConceptConfig } from './queryUnderstanding.js';
+import {
+  buildQueryUnderstanding,
+  getConceptConfig,
+  normalizeQueryText,
+  tokenizeNormalized,
+} from './queryUnderstanding.js';
 import { decideOrderMutationPolicy } from './orderDecisionPolicy.js';
 import {
   dedupeByCode,
@@ -470,6 +475,19 @@ async function buildRecommendationsFromSuggestions(suggestions = [], limit = 4) 
   );
 }
 
+function scoreSuggestionTextOverlap(rec, queryTokens = [], hintWords = []) {
+  const text = normalizeQueryText(`${rec?.name || ''} ${rec?.code || ''}`);
+  const itemTokens = new Set(tokenizeNormalized(text));
+  let score = 0;
+  for (const t of queryTokens) if (itemTokens.has(t)) score += 1;
+  for (const h of hintWords) {
+    const norm = normalizeQueryText(h);
+    if (!norm) continue;
+    if (text.includes(norm)) score += 2;
+  }
+  return score;
+}
+
 async function getQueryRecommendations({
   session,
   language,
@@ -510,7 +528,28 @@ async function getQueryRecommendations({
     });
   }
 
-  return buildRecommendationsFromSuggestions(suggestions, suggestionLimit);
+  let recs = await buildRecommendationsFromSuggestions(suggestions, suggestionLimit * 3);
+
+  const concepts = Array.isArray(queryUnderstanding?.concepts) ? queryUnderstanding.concepts : [];
+  const queryTokens = Array.isArray(queryUnderstanding?.tokens) ? queryUnderstanding.tokens : [];
+  const hintWords = detectConceptHintWords(queryUnderstanding);
+  const conceptDriven = concepts.length > 0;
+
+  if (conceptDriven && recs.length > 0) {
+    const scored = recs.map((r) => ({
+      ...r,
+      _overlap: scoreSuggestionTextOverlap(r, queryTokens, hintWords),
+    }));
+    const anyPositive = scored.some((x) => x._overlap > 0);
+    if (anyPositive) {
+      recs = scored
+        .filter((x) => x._overlap > 0)
+        .sort((a, b) => b._overlap - a._overlap)
+        .map(({ _overlap, ...row }) => row);
+    }
+  }
+
+  return recs.slice(0, suggestionLimit);
 }
 
 function buildNoAddFallbackText(understanding, hasSuggestions) {

@@ -119,3 +119,23 @@ test('very-high fuzzy drink match still uses add_exact fast path', () => {
   });
   assert.equal(decision.mode, 'add_exact');
 });
+
+test('exact direct mention without explicit verb still uses add_exact', () => {
+  const understanding = buildQueryUnderstanding('Azul Plato', { localeHint: 'en' });
+  const decision = decideOrderMutationPolicy({
+    resolvedIntent: 'order',
+    text: 'Azul Plato',
+    nluItems: [
+      makeItem({
+        rawText: 'Azul Plato',
+        menu_item_id: 'm55',
+        matchConfidence: 0.96,
+        matchSource: 'name_exact',
+      }),
+    ],
+    clarificationNeeded: false,
+    queryUnderstanding: understanding,
+  });
+  assert.equal(decision.mode, 'add_exact');
+  assert.equal(decision.reason, 'exact_match_direct_mention');
+});

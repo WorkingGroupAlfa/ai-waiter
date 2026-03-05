@@ -74,6 +74,16 @@ export function decideOrderMutationPolicy({
     );
   });
 
+  if (exactCandidates.length === 1) {
+    return {
+      mode: 'add_exact',
+      reason: explicitOrderAction ? 'exact_match_fast_path' : 'exact_match_direct_mention',
+      explicitOrderAction,
+      eligibleItems,
+      exactItemIds: [exactCandidates[0].menu_item_id],
+    };
+  }
+
   if (!explicitOrderAction) {
     return {
       mode: 'suggest_list',
@@ -81,16 +91,6 @@ export function decideOrderMutationPolicy({
       explicitOrderAction,
       eligibleItems,
       exactItemIds: [],
-    };
-  }
-
-  if (exactCandidates.length === 1) {
-    return {
-      mode: 'add_exact',
-      reason: 'exact_match_fast_path',
-      explicitOrderAction,
-      eligibleItems,
-      exactItemIds: [exactCandidates[0].menu_item_id],
     };
   }
 
