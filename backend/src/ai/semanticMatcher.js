@@ -16,6 +16,10 @@ import {
   getActiveMenuItemsByCodes,
 } from '../models/menuModel.js';
 import { translateToEnglish } from './translationService.js';
+import {
+  findDishCandidates,
+  matchSingleDishDeterministic,
+} from './dishSearchEngine.js';
 
 // ------------------------
 // Lexical matching helpers (fixes напитки/бренды: "фритц кола" → не лимонад)
@@ -532,6 +536,31 @@ export async function matchDishMentionToMenu({ mentionText, locale, restaurantId
 
   const lowerText = text.toLowerCase();
 
+  try {
+    const deterministic = await matchSingleDishDeterministic({
+      mentionText: text,
+      locale: usedLocale,
+      restaurantId,
+    });
+
+    if (deterministic.match && deterministic.match.confidence >= 0.45) {
+      return deterministic.match;
+    }
+
+    if (
+      deterministic.blockedByStrictFilter ||
+      (deterministic.strictConcepts || []).length > 0
+    ) {
+      return {
+        menu_item_id: null,
+        confidence: 0,
+        source: 'strict_concept_no_match',
+      };
+    }
+  } catch (err) {
+    console.error('[semanticMatcher] deterministic match error', err);
+  }
+
   let textForEmbeddings = text;
   const sourceLang = locale;
   try {
@@ -653,6 +682,32 @@ export async function suggestMenuByText({ text, locale, restaurantId, limit = 6 
   const original = String(text ?? '');
   const trimmed = original.trim();
   if (!trimmed || !restaurantId) return [];
+  try {
+    const deterministic = await findDishCandidates({
+      text: trimmed,
+      locale,
+      restaurantId,
+      limit,
+    });
+
+    if (deterministic.results.length > 0) {
+      return deterministic.results.map((row) => ({
+        menu_item_id: row.menu_item_id,
+        item_code: row.item_code,
+        name_en: row.name_en || row.name_local || row.item_code,
+        score: Math.max(0, Math.min(0.99, row.score / 20)),
+      }));
+    }
+
+    if (
+      deterministic.blockedByStrictFilter ||
+      (deterministic.strictConcepts || []).length > 0
+    ) {
+      return [];
+    }
+  } catch (err) {
+    console.error('[semanticMatcher] suggest deterministic error', err);
+  }
 
   // 1) Переводим запрос в EN — так же, как для основного semantic matching
   let textForEmbeddings = trimmed;

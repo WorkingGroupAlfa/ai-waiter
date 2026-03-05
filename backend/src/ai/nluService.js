@@ -6,6 +6,7 @@
 import { openai, hasOpenAI } from '../services/openaiClient.js';
 import { parseUserMessage as legacyParseUserMessage } from '../services/nluService.js';
 import { matchDishMentionToMenu } from './semanticMatcher.js';
+import { detectQueryLanguage } from './queryUnderstanding.js';
 import { query } from '../db.js';
 
 const NLU_MODEL = process.env.OPENAI_NLU_MODEL || 'gpt-4o-mini';
@@ -237,14 +238,7 @@ GENERAL REQUIREMENTS
 
 // Определяем язык по набору символов (Cyrillic / Latin / смешанный).
 function detectLanguageByText(textRaw) {
-  const text = (textRaw || '').toLowerCase();
-  const hasCyrillic = /[а-яёіїєґ]/i.test(text);
-  const hasLatin = /[a-z]/i.test(text);
-
-  if (hasCyrillic && !hasLatin) return 'ru';
-  if (hasLatin && !hasCyrillic) return 'en';
-  if (hasCyrillic && hasLatin) return 'mixed';
-  return 'unknown';
+  return detectQueryLanguage(textRaw, null);
 }
 
 /**
@@ -493,3 +487,4 @@ intent = normalizeIntent(intent);
 
 // Legacy экспорт — чтобы всё старое продолжало работать
 export { legacyParseUserMessage as parseUserMessage };
+

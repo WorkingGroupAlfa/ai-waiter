@@ -2,6 +2,7 @@
 // src/routes/adminRoutes.js
 import { getActiveMenuItemsByCodes } from '../models/menuModel.js';
 import { invalidateSynonymsCache } from '../ai/semanticMatcher.js';
+import { invalidateDishSearchCache } from '../ai/dishSearchEngine.js';
 import express from 'express';
 import {
   getFraudOrders,
@@ -556,6 +557,7 @@ if (!exists || exists.length === 0) {
 
     await addSynonym(payload);
     invalidateSynonymsCache(restaurant_id);
+    invalidateDishSearchCache(restaurant_id);
     return res.json({ status: 'ok' });
   } catch (err) {
     console.error('Error in POST /admin/ai/synonyms', err);

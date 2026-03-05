@@ -14,6 +14,7 @@ import {
 } from '../models/customCategoryModel.js';
 
 import { generateMenuItemEmbeddings } from '../ai/embeddingService.js';
+import { invalidateDishSearchCache } from '../ai/dishSearchEngine.js';
 
 /**
  * Создать или обновить блюдо вместе с ингредиентами, аллергенами и фото.
@@ -90,6 +91,8 @@ export async function createOrUpdateMenuItemWithDetails(payload) {
     console.warn('[menuAdminService] generateMenuItemEmbeddings skipped:', e?.message || e);
   }
 
+  invalidateDishSearchCache(restaurant_id);
+
   return full;
 }
 
@@ -99,5 +102,7 @@ export async function createOrUpdateMenuItemWithDetails(payload) {
 export async function deleteMenuItemSoft({ restaurant_id, id }) {
   if (!restaurant_id) throw new Error('restaurant_id is required');
   if (!id) throw new Error('id is required');
-  return deactivateMenuItemById(restaurant_id, id);
+  const deleted = await deactivateMenuItemById(restaurant_id, id);
+  invalidateDishSearchCache(restaurant_id);
+  return deleted;
 }

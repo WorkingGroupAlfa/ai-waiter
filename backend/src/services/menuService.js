@@ -236,6 +236,49 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
     translatedQuery = '';
   }
 
+  const mapMatchesToPublicRows = async (matches) => {
+    if (!Array.isArray(matches) || matches.length === 0) return [];
+    const itemCodes = matches.map((m) => m.item_code).filter(Boolean);
+    if (!itemCodes.length) return [];
+    const basics = await getMenuItemsBasicByCodes(restaurantId, itemCodes);
+    const basicsByCode = new Map(basics.map((row) => [row.item_code, row]));
+
+    return matches.map((m) => {
+      const base = basicsByCode.get(m.item_code);
+      const photos = Array.isArray(base?.photos) ? base.photos : [];
+      return {
+        item_code: m.item_code,
+        name: m.name_en || m.item_code,
+        price: base?.base_price ?? null,
+        image_url: photos.length ? photos[0] : null,
+      };
+    });
+  };
+
+  // Deterministic multilingual engine first.
+  const deterministicMatches = await suggestMenuByText({
+    text: trimmed,
+    locale,
+    restaurantId,
+    limit: safeLimit,
+  });
+  if (deterministicMatches.length) {
+    return mapMatchesToPublicRows(deterministicMatches);
+  }
+
+  // If query was translated by backend, retry deterministic search on translated text.
+  if (translatedQuery && translatedQuery.toLowerCase() !== trimmed.toLowerCase()) {
+    const deterministicTranslated = await suggestMenuByText({
+      text: translatedQuery,
+      locale: 'en',
+      restaurantId,
+      limit: safeLimit,
+    });
+    if (deterministicTranslated.length) {
+      return mapMatchesToPublicRows(deterministicTranslated);
+    }
+  }
+
   // 0) Tags-first for preference requests (spicy/sweet/drink/snack/main/etc)
   const preferredTags = detectPreferredTags(trimmed);
   if (preferredTags.length) {
