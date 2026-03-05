@@ -21,9 +21,24 @@ import { orderUiRouter } from './routes/orderUiRoutes.js';
 import { actionsRouter } from './routes/actionsRoutes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { runPendingMigrations } from './migrationRunner.js';
 
 
 dotenv.config();
+
+try {
+  const migrationResult = await runPendingMigrations();
+  if (migrationResult.applied.length) {
+    for (const file of migrationResult.applied) {
+      console.log(`[startup:migrate] applied ${file}`);
+    }
+  } else {
+    console.log('[startup:migrate] no pending migrations');
+  }
+} catch (err) {
+  console.error('[startup:migrate] failed:', err);
+  process.exit(1);
+}
 
 //
 const app = express();
