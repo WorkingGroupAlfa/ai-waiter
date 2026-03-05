@@ -77,9 +77,7 @@ export async function sendOrderToTelegram(order) {
   const text = formatOrderText(order);
 
   try {
-    await sendTelegramMessage(chatId, text, {
-      parse_mode: 'Markdown',
-    });
+    await sendTelegramMessage(chatId, text);
   } catch (err) {
     console.error('[Telegram] Failed to send order to Telegram', err);
     // Не пробрасываем ошибку дальше, чтобы не ломать submit заказа
@@ -127,7 +125,7 @@ export async function sendQuickActionToTelegram(payload) {
   const text = formatQuickActionText(payload || {});
 
   try {
-    await sendTelegramMessage(chatId, text, { parse_mode: 'Markdown' });
+    await sendTelegramMessage(chatId, text);
   } catch (err) {
     console.error('[Telegram] Failed to send quick action to Telegram', err);
   }
