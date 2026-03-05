@@ -597,6 +597,57 @@ function buildOrderDraftForResponse(order) {
   return buildOrderDraftForResponseSafe(order);
 }
 
+/**
+ * Build allergy warning for current order (EN-only, translated later by NLG layer).
+ */
+async function buildAllergyWarningForOrder(session, nlu, order, deviceMemory) {
+  if (!order || !Array.isArray(order.items) || order.items.length === 0) return '';
+
+  const restaurantId = session?.restaurant_id;
+  if (!restaurantId) return '';
+
+  const itemCodes = Array.from(
+    new Set(
+      order.items
+        .map((it) => it.item_code)
+        .filter((code) => typeof code === 'string' && code.length > 0)
+    )
+  );
+  if (itemCodes.length === 0) return '';
+
+  const baseAllergies =
+    deviceMemory && Array.isArray(deviceMemory.allergies)
+      ? deviceMemory.allergies
+      : session?.device_id
+      ? await getDeviceAllergies(session.device_id)
+      : [];
+
+  const nluAllergies = extractAllergiesFromNLU(nlu);
+  const mergedAllergies = Array.from(new Set([...(baseAllergies || []), ...nluAllergies]));
+  if (mergedAllergies.length === 0) return '';
+
+  const check = await checkAllergensForItems(restaurantId, itemCodes, mergedAllergies);
+  const dangerous = (check || []).filter((item) => item?.is_safe === false);
+  if (dangerous.length === 0) return '';
+
+  const itemNames = dangerous.map((d) => d.name_en || d.item_code).filter(Boolean);
+  const allergensMentioned = Array.from(
+    new Set(
+      dangerous
+        .flatMap((d) => (Array.isArray(d.matched_allergens) ? d.matched_allergens : []))
+        .filter(Boolean)
+    )
+  );
+
+  if (!itemNames.length || !allergensMentioned.length) return '';
+
+  return (
+    '\n\n⚠️ *Allergy warning*\n' +
+    `Your order contains items that may include your allergens (${allergensMentioned.join(', ')}): ${itemNames.join(', ')}.\n` +
+    'If this is critical for you, please double-check with the waiter.'
+  );
+}
+
 
 /**
  * Р“Р»Р°РІРЅР°СЏ С‚РѕС‡РєР° РІС…РѕРґР°: РѕР±СЂР°Р±РѕС‚РєР° СЃРѕРѕР±С‰РµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ.
