@@ -11,26 +11,30 @@ function asText(v) {
   return String(v ?? '').trim();
 }
 
-function buildBatch(entries) {
-  return entries
-    .map((e, idx) => `[[[K${idx}]]]\n${e.text}`)
-    .join('\n');
-}
+const translationCache = new Map();
 
-function parseBatch(batchText, count) {
-  const result = new Map();
-  const raw = String(batchText || '');
-  const re = /\[\[\[K(\d+)\]\]\]\s*\n?([\s\S]*?)(?=(?:\n\[\[\[K\d+\]\]\])|$)/g;
-  let m;
-  while ((m = re.exec(raw)) !== null) {
-    const idx = Number(m[1]);
-    if (!Number.isInteger(idx)) continue;
-    result.set(idx, asText(m[2]));
+async function translateTextRuntime(text, lang) {
+  const original = asText(text);
+  if (!original) return '';
+
+  const cacheKey = `${lang}::${original}`;
+  if (translationCache.has(cacheKey)) return translationCache.get(cacheKey);
+
+  let translated = original;
+  try {
+    if (lang === 'en') {
+      translated = asText(await translateToEnglish(original, null)) || original;
+    } else {
+      const english = asText(await translateToEnglish(original, null)) || original;
+      translated = asText(await translateFromEnglish(english, lang)) || original;
+    }
+  } catch (err) {
+    console.error('[runtimeUiLocalization] translateTextRuntime failed', err);
+    translated = original;
   }
-  for (let i = 0; i < count; i += 1) {
-    if (!result.has(i)) result.set(i, '');
-  }
-  return result;
+
+  translationCache.set(cacheKey, translated);
+  return translated;
 }
 
 function patchDisplayNames({ orderDraft, upsell, recommendations, customCategories }) {
@@ -96,17 +100,14 @@ export async function localizeUiPayloadBatch({
   }
 
   try {
-    const sourceBatch = buildBatch(entries);
-    const enBatch = await translateToEnglish(sourceBatch, null);
-    const englishBatch = enBatch || sourceBatch;
-    const targetBatch =
-      lang === 'en'
-        ? englishBatch
-        : await translateFromEnglish(englishBatch, lang);
-    const parsed = parseBatch(targetBatch, entries.length);
+    const uniqueTexts = Array.from(new Set(entries.map((e) => e.text)));
+    const translatedPairs = await Promise.all(
+      uniqueTexts.map(async (src) => [src, await translateTextRuntime(src, lang)])
+    );
+    const translatedByText = new Map(translatedPairs);
 
-    entries.forEach((entry, idx) => {
-      const translated = asText(parsed.get(idx)) || entry.text;
+    entries.forEach((entry) => {
+      const translated = asText(translatedByText.get(entry.text)) || entry.text;
 
       if (entry.kind === 'reply') {
         localized.replyText = translated;

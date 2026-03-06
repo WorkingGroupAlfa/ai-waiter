@@ -2,10 +2,10 @@
 // Safety policy for deciding when AI can mutate cart vs suggest/clarify.
 
 export const DEFAULT_AUTO_ADD_CONFIDENCE = Number(
-  process.env.AI_AUTO_ADD_CONFIDENCE_THRESHOLD || 0.84
+  process.env.AI_AUTO_ADD_CONFIDENCE_THRESHOLD || 0.65
 );
 export const DEFAULT_VERY_HIGH_EXACT_CONFIDENCE = Number(
-  process.env.AI_AUTO_ADD_EXACT_THRESHOLD || 0.92
+  process.env.AI_AUTO_ADD_EXACT_THRESHOLD || 0.65
 );
 
 const EXPLICIT_ORDER_PATTERNS = [
@@ -116,11 +116,11 @@ export function decideOrderMutationPolicy({
 
   if (eligibleItems.length === 1) {
     return {
-      mode: 'ask_clarify',
-      reason: 'single_non_exact_candidate_requires_confirmation',
+      mode: 'add_exact',
+      reason: 'single_high_confidence_candidate',
       explicitOrderAction,
       eligibleItems,
-      exactItemIds: [],
+      exactItemIds: [eligibleItems[0].menu_item_id],
     };
   }
 
