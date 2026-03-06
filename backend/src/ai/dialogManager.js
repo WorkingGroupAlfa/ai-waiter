@@ -2749,8 +2749,14 @@ if (!currentOrder) {
     customCategories: Array.isArray(result?.customCategories) ? result.customCategories : [],
   });
 
+  const originalReplyText = (replyText ?? '').toString();
+  const localizedReplyText = (localizedPayload.replyText ?? '').toString();
+  const safeReplyText = localizedReplyText.trim()
+    ? localizedReplyText
+    : originalReplyText;
+
     return {
-    replyText: localizedPayload.replyText,
+    replyText: safeReplyText,
     actions,
     nlu: result.nlu ?? null,
     order: finalOrder,   // legacy-С„РѕСЂРјР°С‚
