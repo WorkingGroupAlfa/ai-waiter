@@ -803,10 +803,18 @@ return {
 
 
   if (!nlu || !nlu.intent || nlu.intent === 'empty') {
+    const language = chooseLanguage(nlu, deviceMemory ?? null, clientLanguage);
+    const baseTextEn =
+      'I didn’t fully understand your request yet. Could you phrase it more simply? For example: “I want a lemonade”, “Recommend a dessert” or “I’m allergic to nuts”.';
+    const reply = await respondInLanguage({
+      baseTextEn,
+      targetLanguage: language,
+    });
+
     return {
       nlu,
       handled: false,
-      reply: null,
+      reply,
       order,
     };
   }
