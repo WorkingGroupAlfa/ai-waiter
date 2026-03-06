@@ -83,7 +83,8 @@ async function applyUiOperation(session, orderId, op) {
   }
 
 if (type === 'set') {
-  const opItemCode = op?.item_code || op?.code || null;
+  const rawItemCode = op?.item_code || op?.itemCode || op?.code || null;
+  const opItemCode = rawItemCode ? String(rawItemCode).trim() : null;
   const opMenuItemId = op?.menu_item_id || op?.menuItemId || null;
   const quantity = Number(op.quantity);
 
@@ -115,16 +116,23 @@ if (type === 'set') {
 
       // если нет menu_item_id, но есть item_code — ищем блюдо по коду
       if (!menuItemId && opItemCode) {
+        const normalizedCodes = Array.from(
+          new Set([opItemCode, opItemCode.toUpperCase(), opItemCode.toLowerCase()].filter(Boolean))
+        );
         const items = await getActiveMenuItemsByCodes(
           session.restaurant_id,
-          [opItemCode]
+          normalizedCodes
         );
         const menuItem = items[0];
         menuItemId = menuItem?.id || null;
       }
 
       if (!menuItemId) {
-        const err = new Error('menu_item_id or item_code is required');
+        const err = new Error(
+          opItemCode
+            ? `No active menu item found for item_code: ${opItemCode}`
+            : 'menu_item_id or item_code is required'
+        );
         err.code = 'VALIDATION_ERROR';
         throw err;
       }

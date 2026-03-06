@@ -503,6 +503,7 @@ async function loadMenuEmbeddings(restaurantId, preferredLocale) {
       FROM menu_item_embeddings mie
       JOIN menu_items mi ON mi.id = mie.menu_item_id
       WHERE mi.restaurant_id = $1
+        AND mi.is_active = TRUE
         AND mie.locale = $2
       `,
       [restaurantId, loc]
