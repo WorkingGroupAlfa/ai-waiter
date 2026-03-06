@@ -76,6 +76,7 @@ import {
   findRequestedCustomCategory,
   getCustomCategoryRecommendations,
 } from '../services/customCategoryService.js';
+import { localizeUiPayloadBatch } from '../i18n/runtimeUiLocalization.js';
 
 // --- UI bundle: how many upsell items to show (2-3 depending on order size) ---
 function desiredUpsellUiCount(order = null) {
@@ -811,6 +812,8 @@ return {
   }
 
     const language = chooseLanguage(nlu, deviceMemory ?? null, clientLanguage);
+  nlu.meta = { ...(nlu.meta || {}), response_language: language };
+  nlu.response_language = language;
 
   // РћР±РЅРѕРІР»СЏРµРј language_preferences РІ long-term РїР°РјСЏС‚Рё, РµСЃР»Рё РіРѕСЃС‚СЊ РїРµСЂРµРєР»СЋС‡РёР» СЏР·С‹Рє
   const primaryLang = language;
@@ -942,6 +945,7 @@ return {
         reply,
         order: orderForResponse,
         recommendations,
+        customCategories: [categoryLabel],
       };
     }
   } catch (err) {
@@ -2575,6 +2579,8 @@ if (!currentOrder) {
   // рџ”№ РќРѕРІС‹Р№: meta.language вЂ” РїРѕ РґР°РЅРЅС‹Рј NLU
   const meta = {
     language:
+      result?.nlu?.meta?.response_language ||
+      result?.nlu?.response_language ||
       result?.nlu?.meta?.language ||
       result?.nlu?.language ||
       null,
@@ -2726,14 +2732,28 @@ if (!currentOrder) {
   }
   // в¬†пёЏ РєРѕРЅРµС† Р±Р»РѕРєР° РјРµС‚СЂРёРє
 
-    return {
+  const localizedPayload = await localizeUiPayloadBatch({
+    targetLanguage: meta.language || null,
     replyText,
+    orderDraft,
+    upsell,
+    recommendations: recommendations && recommendations.length ? recommendations : null,
+    customCategories: Array.isArray(result?.customCategories) ? result.customCategories : [],
+  });
+
+    return {
+    replyText: localizedPayload.replyText,
     actions,
     nlu: result.nlu ?? null,
     order: finalOrder,   // legacy-С„РѕСЂРјР°С‚
-    orderDraft,          // РЅРѕРІС‹Р№ Р±Р»РѕРє РґР»СЏ РєР°СЂС‚РѕС‡РµРє
-    upsell,              // СѓР¶Рµ СЃ unitPrice + imageUrl
-    recommendations: (recommendations && recommendations.length ? recommendations : null),
+    orderDraft: localizedPayload.orderDraft,          // РЅРѕРІС‹Р№ Р±Р»РѕРє РґР»СЏ РєР°СЂС‚РѕС‡РµРє
+    upsell: localizedPayload.upsell,              // СѓР¶Рµ СЃ unitPrice + imageUrl
+    recommendations: localizedPayload.recommendations && localizedPayload.recommendations.length
+      ? localizedPayload.recommendations
+      : null,
+    customCategories: Array.isArray(localizedPayload.customCategories) && localizedPayload.customCategories.length
+      ? localizedPayload.customCategories
+      : null,
     meta,
   };
 

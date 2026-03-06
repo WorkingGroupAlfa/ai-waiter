@@ -22,6 +22,8 @@ import {
 import { loadDeviceMemory } from '../ai/memoryService.js'; // если путь такой же как в dialogManager
 
 
+import { localizeUiPayloadBatch } from '../i18n/runtimeUiLocalization.js';
+
 export const orderUiRouter = express.Router();
 
 // Все эндпоинты требуют x-session-token
@@ -353,7 +355,19 @@ if (items.length) {
   }
 }
 
-return res.json({ orderDraft, upsell });
+const localizedPayload = await localizeUiPayloadBatch({
+  targetLanguage: payload?.language || payload?.client_language || 'en',
+  replyText: '',
+  orderDraft,
+  upsell,
+  recommendations: null,
+  customCategories: [],
+});
+
+return res.json({
+  orderDraft: localizedPayload.orderDraft,
+  upsell: localizedPayload.upsell,
+});
 
   } catch (err) {
     console.error('Error in POST /order/ui-update', err);
