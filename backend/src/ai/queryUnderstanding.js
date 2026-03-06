@@ -231,39 +231,76 @@ export function detectQueryLanguage(text, localeHint = null) {
   const src = String(text || '').trim();
   if (!src) return String(localeHint || 'unknown').toLowerCase();
 
+  const hint = String(localeHint || '').toLowerCase();
+  const hint2 = /^[a-z]{2}/.test(hint) ? hint.slice(0, 2) : '';
+
   const hasLatin = /[a-z]/i.test(src);
   const hasCyr = /[\u0430-\u044f\u0451\u0456\u0457\u0454\u0491\u044b\u044d\u044a]/i.test(src);
   const hasUkMarkers = /[\u0456\u0457\u0454\u0491]/i.test(src);
   const hasRuMarkers = /[\u044b\u044d\u044a\u0451]/i.test(src);
+  const hasHan = /\p{Script=Han}/u.test(src);
+  const hasHiragana = /\p{Script=Hiragana}/u.test(src);
+  const hasKatakana = /\p{Script=Katakana}/u.test(src);
+  const hasHangul = /\p{Script=Hangul}/u.test(src);
+  const hasArabic = /\p{Script=Arabic}/u.test(src);
+  const hasHebrew = /\p{Script=Hebrew}/u.test(src);
+  const hasDevanagari = /\p{Script=Devanagari}/u.test(src);
+  const hasThai = /\p{Script=Thai}/u.test(src);
+  const hasGreek = /\p{Script=Greek}/u.test(src);
 
-  if (hasLatin && hasCyr) return 'mixed';
+  const scriptHits = [
+    hasLatin,
+    hasCyr,
+    hasHan || hasHiragana || hasKatakana,
+    hasHangul,
+    hasArabic,
+    hasHebrew,
+    hasDevanagari,
+    hasThai,
+    hasGreek,
+  ].filter(Boolean).length;
+
+  if (scriptHits > 1) return 'mixed';
   if (hasLatin) return 'en';
   if (hasCyr) {
     if (hasUkMarkers && !hasRuMarkers) return 'uk';
     if (hasRuMarkers && !hasUkMarkers) return 'ru';
-    return String(localeHint || 'uk').toLowerCase().startsWith('ru') ? 'ru' : 'uk';
+    return hint.startsWith('ru') ? 'ru' : 'uk';
   }
+  if (hasHiragana || hasKatakana) return 'ja';
+  if (hasHan) return hint2 || 'zh';
+  if (hasHangul) return 'ko';
+  if (hasArabic) return hint2 || 'ar';
+  if (hasHebrew) return hint2 || 'he';
+  if (hasDevanagari) return hint2 || 'hi';
+  if (hasThai) return hint2 || 'th';
+  if (hasGreek) return hint2 || 'el';
 
-  const hint = String(localeHint || '').toLowerCase();
-  if (/^[a-z]{2}/.test(hint)) return hint.slice(0, 2);
+  if (hint2) return hint2;
   return 'unknown';
 }
 
 export function normalizeQueryText(text) {
-  return String(text || '')
+  const normalized = String(text || '')
+    .normalize('NFKC')
     .toLowerCase()
     .replaceAll('\u0451', '\u0435')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFC')
+    .replace(/[’'`´]+/g, '')
     .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  return normalized;
 }
 
 function stemToken(token) {
   let t = String(token || '').toLowerCase();
   if (!t) return '';
 
-  const suffixes = [
+  const cyrSuffixes = [
     '\u0438\u044f\u043c\u0438',
     '\u044f\u043c\u0438',
     '\u0430\u043c\u0438',
@@ -295,12 +332,11 @@ function stemToken(token) {
     '\u0438',
     '\u0435',
     '\u043e',
-    'ing',
-    'ings',
-    'ed',
-    'es',
-    's',
   ];
+  const latinSuffixes = ['ingly', 'edly', 'ing', 'ed', 'es', 's'];
+  const hasCyr = /[\u0400-\u04ff]/.test(t);
+  const hasLatin = /[a-z]/.test(t);
+  const suffixes = hasCyr ? cyrSuffixes : hasLatin ? latinSuffixes : [];
 
   for (const suffix of suffixes) {
     if (t.length > suffix.length + 2 && t.endsWith(suffix)) {
@@ -313,12 +349,23 @@ function stemToken(token) {
 
 export function tokenizeNormalized(normalizedText) {
   if (!normalizedText) return [];
-  return normalizedText
+  const parts = normalizedText
     .split(' ')
     .map((t) => t.trim())
     .filter((t) => t.length >= 2)
-    .map(stemToken)
-    .filter(Boolean);
+    .map(stemToken);
+
+  const out = new Set(parts.filter(Boolean));
+  const compact = normalizedText.replace(/\s+/g, '');
+  const hasCJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(compact);
+  if (hasCJK && compact.length >= 2) {
+    for (let i = 0; i < compact.length - 1; i += 1) {
+      const bi = compact.slice(i, i + 2);
+      if (bi.length === 2) out.add(bi);
+    }
+  }
+
+  return Array.from(out);
 }
 
 export function extractConcepts(normalizedText, tokens = []) {

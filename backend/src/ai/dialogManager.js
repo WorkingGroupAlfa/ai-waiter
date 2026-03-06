@@ -585,6 +585,30 @@ function buildNoAddFallbackText(understanding, hasSuggestions) {
     : "I couldn't detect an exact dish. Please specify the exact menu item you want to add.";
 }
 
+function prettifyCategorySlug(slug) {
+  const text = String(slug || '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  if (!text) return '';
+  return text
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function pickCategoryLabelForLanguage(category, language) {
+  const lang = String(language || '').toLowerCase();
+  const nameEn = String(category?.name_en || '').trim();
+  const nameUa = String(category?.name_ua || '').trim();
+  const slugPretty = prettifyCategorySlug(category?.slug);
+
+  if (lang.startsWith('uk') || lang.startsWith('ua')) {
+    return nameUa || nameEn || slugPretty || 'this category';
+  }
+  return nameEn || slugPretty || nameUa || 'this category';
+}
+
 
 
 
@@ -932,11 +956,10 @@ return {
         (recommendationsRaw || []).filter((it) => Boolean(it?.code))
       );
 
-      const categoryLabel =
-        requestedCategory.name_en ||
-        requestedCategory.name_ua ||
-        requestedCategory.slug ||
-        'this category';
+      const categoryLabel = pickCategoryLabelForLanguage(
+        requestedCategory,
+        language
+      );
 
       const baseTextEn = recommendations.length
         ? `Here's what we have in ${categoryLabel}:`

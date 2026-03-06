@@ -114,16 +114,6 @@ export function decideOrderMutationPolicy({
     };
   }
 
-  if (eligibleItems.length === 1) {
-    return {
-      mode: 'add_exact',
-      reason: 'single_high_confidence_candidate',
-      explicitOrderAction,
-      eligibleItems,
-      exactItemIds: [eligibleItems[0].menu_item_id],
-    };
-  }
-
   return {
     mode: concepts.length > 0 ? 'suggest_list' : 'ask_clarify',
     reason: concepts.length > 0 ? 'category_or_oov_query' : 'no_high_confidence_items',

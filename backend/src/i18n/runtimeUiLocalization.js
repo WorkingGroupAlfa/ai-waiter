@@ -1,4 +1,4 @@
-import { translateFromEnglish, translateToEnglish } from '../ai/translationService.js';
+import { translateText } from '../ai/translationService.js';
 
 function normalizeLang(lang) {
   const raw = String(lang || 'en').trim().toLowerCase();
@@ -22,12 +22,7 @@ async function translateTextRuntime(text, lang) {
 
   let translated = original;
   try {
-    if (lang === 'en') {
-      translated = asText(await translateToEnglish(original, null)) || original;
-    } else {
-      const english = asText(await translateToEnglish(original, null)) || original;
-      translated = asText(await translateFromEnglish(english, lang)) || original;
-    }
+    translated = asText(await translateText(original, lang, null)) || original;
   } catch (err) {
     console.error('[runtimeUiLocalization] translateTextRuntime failed', err);
     translated = original;

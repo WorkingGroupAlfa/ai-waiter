@@ -59,7 +59,8 @@ export async function addItemToOrder(
 
   const itemId = uuidv4();
   const itemCode = menuItem.item_code;
-  const lang = (language || '').startsWith('en') ? 'en' : 'ua';
+  const langNorm = String(language || '').trim().toLowerCase();
+  const lang = langNorm.startsWith('uk') || langNorm.startsWith('ua') ? 'ua' : 'en';
   const itemName =
     lang === 'en'
       ? menuItem.name_en || menuItem.name_ua || itemCode

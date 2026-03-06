@@ -46,6 +46,27 @@ function normalizeMlMeta(raw) {
   return { strategy, model_version, epsilon, picked_by };
 }
 
+async function resolveUiLanguage({ payload, session }) {
+  const payloadLang = String(
+    payload?.language || payload?.client_language || ''
+  )
+    .trim()
+    .toLowerCase();
+  if (payloadLang) return payloadLang;
+
+  try {
+    const memory = await loadDeviceMemory(session?.device_id || null);
+    const memoryLang = String(memory?.languagePreferences?.primary || '')
+      .trim()
+      .toLowerCase();
+    if (memoryLang) return memoryLang;
+  } catch (err) {
+    console.error('[order/ui-update] resolveUiLanguage failed:', err);
+  }
+
+  return 'en';
+}
+
 /**
  * POST /api/v1/order/ui-update
  * body:
@@ -355,8 +376,9 @@ if (items.length) {
   }
 }
 
+const targetLanguage = await resolveUiLanguage({ payload, session });
 const localizedPayload = await localizeUiPayloadBatch({
-  targetLanguage: payload?.language || payload?.client_language || 'en',
+  targetLanguage,
   replyText: '',
   orderDraft,
   upsell,

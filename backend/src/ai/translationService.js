@@ -96,3 +96,50 @@ export async function translateFromEnglish(textEn, targetLang) {
     return original;
   }
 }
+
+/**
+ * Generic translation from any source language into target language.
+ * Uses deterministic settings and keeps dish/entity names natural.
+ *
+ * @param {string} text
+ * @param {string} targetLang
+ * @param {string|null} sourceLang
+ * @returns {Promise<string>}
+ */
+export async function translateText(text, targetLang, sourceLang = null) {
+  const original = String(text ?? '');
+  const trimmed = original.trim();
+
+  if (!trimmed) return '';
+  const target = String(targetLang || '').trim().toLowerCase();
+  if (!target) return original;
+
+  if (!hasOpenAI) {
+    return original;
+  }
+
+  const systemPrompt =
+    'You are a translation engine for restaurant UI text. Translate naturally into the target language. Keep dish names and culinary terms semantically correct (not transliterated when a standard translation exists). Return ONLY translated text.';
+
+  const userPayload = sourceLang
+    ? `Source language: ${sourceLang}\nTarget language: ${target}\nText:\n${original}`
+    : `Target language: ${target}\nText:\n${original}`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: DEFAULT_TRANSLATION_MODEL,
+      temperature: 0,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPayload },
+      ],
+    });
+
+    const translated = completion.choices?.[0]?.message?.content?.trim();
+    if (!translated) return original;
+    return translated;
+  } catch (err) {
+    console.error('[translationService] translateText error', err);
+    return original;
+  }
+}

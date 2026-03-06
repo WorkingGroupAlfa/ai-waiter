@@ -20,6 +20,7 @@ import {
   findDishCandidates,
   matchSingleDishDeterministic,
 } from './dishSearchEngine.js';
+import { detectQueryLanguage, normalizeQueryText, tokenizeNormalized } from './queryUnderstanding.js';
 
 // ------------------------
 // Lexical matching helpers (fixes напитки/бренды: "фритц кола" → не лимонад)
@@ -35,8 +36,12 @@ const NAME_STOPWORDS = new Set([
 
 function normalizeForNameMatch(s) {
   return String(s || '')
+    .normalize('NFKC')
     .toLowerCase()
     .replaceAll('ё', 'е')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFC')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -98,13 +103,49 @@ function similarityRatio(a, b) {
   return 1 - dist / maxLen;
 }
 
+function collectArrayValues(maybeArrayOrJson) {
+  if (Array.isArray(maybeArrayOrJson)) {
+    return maybeArrayOrJson.map((v) => String(v || '').trim()).filter(Boolean);
+  }
+  if (typeof maybeArrayOrJson === 'string') {
+    const raw = maybeArrayOrJson.trim();
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((v) => String(v || '').trim()).filter(Boolean);
+      }
+    } catch {
+      return [raw];
+    }
+    return [raw];
+  }
+  return [];
+}
+
+function getItemNameCandidates(row) {
+  const out = new Set();
+  if (!row || typeof row !== 'object') return [];
+
+  for (const [key, value] of Object.entries(row)) {
+    if (!value) continue;
+    if (key === 'item_code') out.add(String(value));
+    if (key.startsWith('name_')) out.add(String(value));
+    if (key === 'aliases' || key === 'aliases_json' || key === 'synonyms') {
+      for (const alias of collectArrayValues(value)) out.add(alias);
+    }
+  }
+
+  return Array.from(out).filter(Boolean);
+}
+
 async function matchByName({ mentionText, restaurantId }) {
   const cleaned = stripStopwords(mentionText);
   if (!cleaned || cleaned.length < 2) return null;
 
   const { rows } = await query(
     `
-    SELECT id, item_code, name_ua, name_en, category, tags
+    SELECT *
     FROM menu_items
     WHERE restaurant_id = $1 AND is_active = TRUE
     `,
@@ -116,11 +157,9 @@ async function matchByName({ mentionText, restaurantId }) {
 
   // 1) Exact/contains match first (very deterministic)
   for (const r of rows) {
-    const n1 = normalizeForNameMatch(r.name_ua);
-    const n2 = normalizeForNameMatch(r.name_en);
-    const c = normalizeForNameMatch(r.item_code);
+    const candidates = getItemNameCandidates(r).map(normalizeForNameMatch);
     if (!q) continue;
-    if (q === n1 || q === n2 || q === c) {
+    if (candidates.includes(q)) {
       return { menu_item_id: r.id, confidence: 0.99, source: 'name_exact' };
     }
   }
@@ -131,7 +170,7 @@ async function matchByName({ mentionText, restaurantId }) {
   let bestScore = 0;
 
   for (const r of rows) {
-    const candidates = [r.name_ua, r.name_en, r.item_code].filter(Boolean);
+    const candidates = getItemNameCandidates(r);
     const tagsArr = Array.isArray(r.tags) ? r.tags : [];
     const isDrinkItem =
       String(r.category || '').toLowerCase() === 'drink' ||
@@ -180,6 +219,45 @@ async function matchByName({ mentionText, restaurantId }) {
   return null;
 }
 
+async function matchByExactNameOrCode({ mentionText, restaurantId }) {
+  const cleaned = stripStopwords(mentionText);
+  if (!cleaned || cleaned.length < 2) return null;
+
+  const { rows } = await query(
+    `
+    SELECT *
+    FROM menu_items
+    WHERE restaurant_id = $1 AND is_active = TRUE
+    `,
+    [restaurantId]
+  );
+
+  const q = normalizeForNameMatch(cleaned);
+  if (!q) return null;
+
+  for (const r of rows) {
+    const candidates = getItemNameCandidates(r).map(normalizeForNameMatch);
+    if (candidates.includes(q)) {
+      return { menu_item_id: r.id, confidence: 0.995, source: 'name_exact_short' };
+    }
+  }
+
+  return null;
+}
+
+async function getMenuItemPreviewById(menuItemId) {
+  const { rows } = await query(
+    `
+    SELECT id AS menu_item_id, item_code, name_en, name_ua
+    FROM menu_items
+    WHERE id = $1 AND is_active = TRUE
+    LIMIT 1
+    `,
+    [menuItemId]
+  );
+  return rows[0] || null;
+}
+
 // --- DB synonyms cache (ai_synonyms) ---
 const SYN_CACHE_TTL_MS = Number(process.env.AI_SYNONYMS_TTL_MS || 120000); // 2 min
 const _synCache = new Map(); // restaurantId -> { exp, rows }
@@ -226,6 +304,61 @@ const EMBEDDING_MATCH_THRESHOLD = Number(
 const SUGGEST_EMBEDDING_THRESHOLD = Number(
   process.env.SEMANTIC_SUGGEST_THRESHOLD || 0.5
 );
+
+function detectScriptProfile(text) {
+  const src = String(text || '');
+  const hasCJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(src);
+  const hasCyr = /[\u0400-\u04ff]/u.test(src);
+  const hasLatin = /[a-z]/i.test(src);
+  if (hasCJK) return 'cjk';
+  if (hasCyr) return 'cyrillic';
+  if (hasLatin) return 'latin';
+  return 'other';
+}
+
+function buildConfidenceProfile({ text, locale }) {
+  const normalized = normalizeQueryText(text);
+  const tokens = tokenizeNormalized(normalized);
+  const tokenCount = tokens.length;
+  const lang = detectQueryLanguage(text, locale);
+  const script = detectScriptProfile(text);
+  const isShort = tokenCount <= 4 || normalized.length <= 24;
+
+  let deterministicAccept = 0.45;
+  let embeddingAccept = EMBEDDING_MATCH_THRESHOLD;
+  let suggestMin = SUGGEST_EMBEDDING_THRESHOLD || 0.4;
+  let suggestFactor = 0.6;
+
+  if (script === 'cjk') {
+    deterministicAccept = 0.4;
+    embeddingAccept = Math.max(0.5, EMBEDDING_MATCH_THRESHOLD - 0.08);
+    suggestMin = Math.max(0.38, suggestMin - 0.07);
+    suggestFactor = 0.58;
+  } else if (script === 'cyrillic') {
+    deterministicAccept = 0.43;
+    embeddingAccept = Math.max(0.53, EMBEDDING_MATCH_THRESHOLD - 0.04);
+    suggestMin = Math.max(0.4, suggestMin - 0.03);
+  } else if (lang !== 'en') {
+    embeddingAccept = Math.max(0.54, EMBEDDING_MATCH_THRESHOLD - 0.03);
+  }
+
+  if (isShort) {
+    embeddingAccept = Math.min(0.75, embeddingAccept + 0.05);
+    suggestMin = Math.min(0.65, suggestMin + 0.05);
+  }
+
+  return {
+    lang,
+    script,
+    tokenCount,
+    normalized,
+    isShort,
+    deterministicAccept,
+    embeddingAccept,
+    suggestMin,
+    suggestFactor,
+  };
+}
 // Synonym Graph: мапим текстовые синонимы на item_code.
 // Для демо — шримп попкорн и крабовый ролл.
 // Synonym Graph: мапим текстовые синонимы на item_code.
@@ -525,6 +658,7 @@ async function matchByIngredients({ lowerText, restaurantId }) {
 export async function matchDishMentionToMenu({ mentionText, locale, restaurantId }) {
   const usedLocale = (locale || 'en').toLowerCase();
   const text = (mentionText || '').trim();
+  const confidenceProfile = buildConfidenceProfile({ text, locale: usedLocale });
 
   if (!text || !restaurantId) {
     return {
@@ -536,6 +670,14 @@ export async function matchDishMentionToMenu({ mentionText, locale, restaurantId
 
   const lowerText = text.toLowerCase();
 
+  if (confidenceProfile.isShort) {
+    const exactShort = await matchByExactNameOrCode({
+      mentionText: text,
+      restaurantId,
+    });
+    if (exactShort) return exactShort;
+  }
+
   try {
     const deterministic = await matchSingleDishDeterministic({
       mentionText: text,
@@ -543,7 +685,10 @@ export async function matchDishMentionToMenu({ mentionText, locale, restaurantId
       restaurantId,
     });
 
-    if (deterministic.match && deterministic.match.confidence >= 0.45) {
+    if (
+      deterministic.match &&
+      deterministic.match.confidence >= confidenceProfile.deterministicAccept
+    ) {
       return deterministic.match;
     }
 
@@ -570,6 +715,18 @@ export async function matchDishMentionToMenu({ mentionText, locale, restaurantId
     textForEmbeddings = text;
   }
   const lowerTranslated = String(textForEmbeddings || '').toLowerCase();
+
+  if (
+    confidenceProfile.isShort &&
+    textForEmbeddings &&
+    textForEmbeddings !== text
+  ) {
+    const exactTranslated = await matchByExactNameOrCode({
+      mentionText: textForEmbeddings,
+      restaurantId,
+    });
+    if (exactTranslated) return exactTranslated;
+  }
 
   const synonymMatch = await matchBySynonymGraph({
     lowerText,
@@ -616,7 +773,10 @@ export async function matchDishMentionToMenu({ mentionText, locale, restaurantId
     });
   }
 
-  if (embMatchAny && embMatchAny.confidence >= EMBEDDING_MATCH_THRESHOLD) {
+  if (
+    embMatchAny &&
+    embMatchAny.confidence >= confidenceProfile.embeddingAccept
+  ) {
     return embMatchAny;
   }
 
@@ -682,6 +842,30 @@ export async function suggestMenuByText({ text, locale, restaurantId, limit = 6 
   const original = String(text ?? '');
   const trimmed = original.trim();
   if (!trimmed || !restaurantId) return [];
+  const confidenceProfile = buildConfidenceProfile({
+    text: trimmed,
+    locale: locale || 'en',
+  });
+
+  if (confidenceProfile.isShort) {
+    const exactShort = await matchByExactNameOrCode({
+      mentionText: trimmed,
+      restaurantId,
+    });
+    if (exactShort?.menu_item_id) {
+      const exactItem = await getMenuItemPreviewById(exactShort.menu_item_id);
+      if (exactItem) {
+        return [
+          {
+            menu_item_id: exactItem.menu_item_id,
+            item_code: exactItem.item_code,
+            name_en: exactItem.name_en || exactItem.name_ua || exactItem.item_code,
+            score: 0.99,
+          },
+        ];
+      }
+    }
+  }
   try {
     const deterministic = await findDishCandidates({
       text: trimmed,
@@ -718,6 +902,30 @@ export async function suggestMenuByText({ text, locale, restaurantId, limit = 6 
   } catch (err) {
     console.error('[semanticMatcher] suggestMenuByText translateToEnglish error', err);
     textForEmbeddings = trimmed;
+  }
+
+  if (
+    confidenceProfile.isShort &&
+    textForEmbeddings &&
+    textForEmbeddings !== trimmed
+  ) {
+    const exactTranslated = await matchByExactNameOrCode({
+      mentionText: textForEmbeddings,
+      restaurantId,
+    });
+    if (exactTranslated?.menu_item_id) {
+      const exactItem = await getMenuItemPreviewById(exactTranslated.menu_item_id);
+      if (exactItem) {
+        return [
+          {
+            menu_item_id: exactItem.menu_item_id,
+            item_code: exactItem.item_code,
+            name_en: exactItem.name_en || exactItem.name_ua || exactItem.item_code,
+            score: 0.99,
+          },
+        ];
+      }
+    }
   }
 
   // 2) Эмбеддинг запроса
@@ -779,8 +987,8 @@ export async function suggestMenuByText({ text, locale, restaurantId, limit = 6 
   // - "глобальный" нижний порог (типа 0.4)
   // - доля от topScore, чтобы не тащить совсем хвост
   const dynamicThreshold = Math.max(
-    SUGGEST_EMBEDDING_THRESHOLD || 0.4,
-    topScore * 0.6
+    confidenceProfile.suggestMin,
+    topScore * confidenceProfile.suggestFactor
   );
 
   const filtered = scored.filter((m) => m.score >= dynamicThreshold);
@@ -812,5 +1020,3 @@ export async function suggestMenuByText({ text, locale, restaurantId, limit = 6 
 
   return finalList;
 }
-
-
