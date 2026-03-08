@@ -1,7 +1,6 @@
 // src/services/orderUiService.js
 // Сервис для интерактивного UI-обновления драфта заказа
 import { getActiveMenuItemsByCodes } from '../models/menuModel.js';
-import { query } from '../db.js';
 import {
   getOrCreateDraftOrderForSession,
   getOrderWithItemsForChat,
@@ -13,118 +12,6 @@ import {
 } from './orderMutationService.js';
 
 import { findOrderItems } from '../models/orderModel.js';
-
-function normalizeLookupText(v) {
-  return String(v || '')
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-async function resolveMenuItemIdByCodeFallback(restaurantId, rawCode) {
-  const opItemCode = String(rawCode || '').trim();
-  if (!restaurantId || !opItemCode) return null;
-
-  // 1) direct active lookup by code variants
-  const normalizedCodes = Array.from(
-    new Set([opItemCode, opItemCode.toUpperCase(), opItemCode.toLowerCase()].filter(Boolean))
-  );
-  const direct = await getActiveMenuItemsByCodes(restaurantId, normalizedCodes);
-  if (direct?.[0]?.id) return direct[0].id;
-
-  // 2) if old code exists but inactive, try to find active replacement by same name
-  const oldCodeRes = await query(
-    `
-    SELECT id, item_code, name_ua, name_en, is_active
-    FROM menu_items
-    WHERE restaurant_id = $1
-      AND UPPER(item_code) = UPPER($2)
-    ORDER BY is_active DESC, updated_at DESC NULLS LAST, created_at DESC
-    LIMIT 1
-    `,
-    [restaurantId, opItemCode]
-  );
-  const oldCode = oldCodeRes.rows?.[0] || null;
-  if (oldCode && oldCode.is_active === false) {
-    const oldNameUa = normalizeLookupText(oldCode.name_ua);
-    const oldNameEn = normalizeLookupText(oldCode.name_en);
-
-    if (oldNameUa || oldNameEn) {
-      const byNameRes = await query(
-        `
-        SELECT id, item_code
-        FROM menu_items
-        WHERE restaurant_id = $1
-          AND is_active = TRUE
-          AND (
-            ($2 <> '' AND lower(coalesce(name_ua, '')) = $2)
-            OR ($3 <> '' AND lower(coalesce(name_en, '')) = $3)
-          )
-        ORDER BY updated_at DESC NULLS LAST, created_at DESC
-        LIMIT 2
-        `,
-        [restaurantId, oldNameUa || '', oldNameEn || '']
-      );
-      if (byNameRes.rows.length === 1) {
-        return byNameRes.rows[0].id;
-      }
-    }
-  }
-
-  // 3) robust lexical fallback by item name (strict: only unique best match)
-  const needle = normalizeLookupText(opItemCode);
-  if (!needle || needle.length < 3) return null;
-
-  const lexical = await query(
-    `
-    SELECT
-      id,
-      item_code,
-      name_ua,
-      name_en
-    FROM menu_items
-    WHERE restaurant_id = $1
-      AND is_active = TRUE
-      AND (
-        lower(coalesce(name_ua, '')) LIKE $2
-        OR lower(coalesce(name_en, '')) LIKE $2
-        OR lower(replace(coalesce(name_ua, ''), '-', ' ')) LIKE $2
-        OR lower(replace(coalesce(name_en, ''), '-', ' ')) LIKE $2
-      )
-    ORDER BY updated_at DESC NULLS LAST, created_at DESC
-    LIMIT 5
-    `,
-    [restaurantId, `%${needle}%`]
-  );
-
-  if (!lexical.rows.length) return null;
-  if (lexical.rows.length === 1) return lexical.rows[0].id;
-
-  const scored = lexical.rows
-    .map((row) => {
-      const nUa = normalizeLookupText(row.name_ua);
-      const nEn = normalizeLookupText(row.name_en);
-      let score = 0;
-      if (nUa === needle || nEn === needle) score += 6;
-      if (nUa.startsWith(needle) || nEn.startsWith(needle)) score += 3;
-      if (nUa.includes(needle) || nEn.includes(needle)) score += 2;
-      if (needle.includes(nUa) || needle.includes(nEn)) score += 1;
-      return { id: row.id, score };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  if (!scored.length || scored[0].score <= 0) return null;
-  const best = scored[0];
-  const next = scored[1] || null;
-  if (!next || best.score >= next.score + 2) {
-    return best.id;
-  }
-
-  return null;
-}
 
 /**
  * Копия логики из dialogManager.buildOrderDraftForResponse,
@@ -229,10 +116,15 @@ if (type === 'set') {
 
       // если нет menu_item_id, но есть item_code — ищем блюдо по коду
       if (!menuItemId && opItemCode) {
-        menuItemId = await resolveMenuItemIdByCodeFallback(
-          session.restaurant_id,
-          opItemCode
+        const normalizedCodes = Array.from(
+          new Set([opItemCode, opItemCode.toUpperCase(), opItemCode.toLowerCase()].filter(Boolean))
         );
+        const items = await getActiveMenuItemsByCodes(
+          session.restaurant_id,
+          normalizedCodes
+        );
+        const menuItem = items[0];
+        menuItemId = menuItem?.id || null;
       }
 
       if (!menuItemId) {
