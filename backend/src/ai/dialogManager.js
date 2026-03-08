@@ -494,7 +494,7 @@ async function getQueryRecommendations({
   language,
   normalizedText,
   queryUnderstanding,
-  suggestionLimit = 4,
+  suggestionLimit = 6,
   availabilityQ = false,
   availabilityHint = null,
 }) {
@@ -1110,7 +1110,7 @@ if (extractedDishQuery && extractedDishQuery.length >= 3) {
   const availabilityHint =
     availabilityQ && !hasConcepts ? detectAvailabilityCategoryHint(normalizedText) : null;
 
-  const suggestionLimit = 4;
+  const suggestionLimit = 6;
   const recommendations = await getQueryRecommendations({
     session,
     language,
@@ -1289,7 +1289,7 @@ case 'allergy_info': {
       }
 
       if (!updatedOrder || !addedItems || addedItems.length === 0) {
-        const suggestionLimit = 4;
+        const suggestionLimit = 6;
         const recommendations = await getQueryRecommendations({
           session,
           language,
