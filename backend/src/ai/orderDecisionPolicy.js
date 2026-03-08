@@ -56,6 +56,18 @@ export function decideOrderMutationPolicy({
     : [];
   const pool = Array.isArray(nluItems) ? nluItems : [];
 
+  // If query contains category/ingredient concepts, we stay in suggest-list mode.
+  // This prevents accidental auto-add for requests like "I want sushi/salmon/crab".
+  if (concepts.length > 0) {
+    return {
+      mode: 'suggest_list',
+      reason: 'category_or_ingredient_query',
+      explicitOrderAction,
+      eligibleItems: [],
+      exactItemIds: [],
+    };
+  }
+
   const eligibleItems = pool.filter((item) => {
     const conf = Number(item?.matchConfidence || 0);
     return item?.menu_item_id && Number.isFinite(conf) && conf >= threshold;

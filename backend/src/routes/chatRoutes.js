@@ -4,9 +4,47 @@ import { sendError } from '../utils/errors.js';
 import { handleUserMessage } from '../ai/dialogManager.js';
 import { insertPerformanceMetric } from '../models/performanceMetricsModel.js';
 import { translateFromEnglish } from '../ai/translationService.js';
+import { getSessionByToken } from '../services/sessionService.js';
+import { countDeviceEventsInWindow } from '../models/eventsModel.js';
 
 
 export const chatRouter = express.Router();
+const MAX_MESSAGES_PER_HOUR = Number(process.env.CHAT_MAX_MESSAGES_PER_HOUR || 30);
+const CHAT_WINDOW_SECONDS = 3600;
+const MAX_INPUT_CHARS = Number(process.env.CHAT_MAX_INPUT_CHARS || 900);
+const MAX_INPUT_TOKENS_EST = Number(process.env.CHAT_MAX_INPUT_TOKENS_EST || 350);
+const RATE_LIMIT_TEXT_RU =
+  'Вы отправили слишком много сообщений. Попробуйте снова немного позже.';
+const localRateFallback = new Map();
+
+function estimateTokenCount(text) {
+  const src = String(text || '');
+  if (!src.trim()) return 0;
+  // Rough estimate across Latin/Cyr/CJK: words + punctuation chunks.
+  const chunks = src.match(/[\p{L}\p{N}]+|[^\s\p{L}\p{N}]/gu) || [];
+  return chunks.length;
+}
+
+function hitLocalRateFallback(deviceId) {
+  if (!deviceId) return false;
+  const now = Date.now();
+  const bucket = Math.floor(now / CHAT_WINDOW_SECONDS / 1000);
+  const key = `${deviceId}:${bucket}`;
+  const state = localRateFallback.get(key) || { count: 0, ts: now };
+  state.count += 1;
+  state.ts = now;
+  localRateFallback.set(key, state);
+
+  // Best-effort cleanup.
+  if (localRateFallback.size > 2000) {
+    for (const [k, v] of localRateFallback.entries()) {
+      if (!v?.ts || now - v.ts > CHAT_WINDOW_SECONDS * 2000) {
+        localRateFallback.delete(k);
+      }
+    }
+  }
+  return state.count > MAX_MESSAGES_PER_HOUR;
+}
 
 chatRouter.get('/welcome', async (req, res) => {
   // 1) берем язык клиента: query приоритетнее
@@ -227,7 +265,8 @@ chatRouter.post('/message', async (req, res) => {
     null;
 
   const body = req.body || {};
-  const text = (body.text ?? body.message ?? '').toString();
+  const rawText = (body.text ?? body.message ?? '').toString();
+  const text = rawText.length > MAX_INPUT_CHARS ? rawText.slice(0, MAX_INPUT_CHARS) : rawText;
 const clientLanguage = (
     body.client_language || 
     body.clientLanguage || 
@@ -269,6 +308,59 @@ const clientLanguage = (
     });
 
     return sendError(res, 400, 'EMPTY_MESSAGE', 'Message text is required');
+  }
+
+  if (estimateTokenCount(text) > MAX_INPUT_TOKENS_EST) {
+    await insertPerformanceMetric({
+      metricName: 'http.chat.message',
+      scope: 'chat',
+      durationMs: Date.now() - httpStart,
+      labels: {
+        source,
+        has_error: true,
+        reason: 'MESSAGE_TOO_LARGE',
+      },
+      meta: {},
+    });
+    return sendError(res, 400, 'MESSAGE_TOO_LARGE', 'Message is too large');
+  }
+
+  try {
+    const session = await getSessionByToken(sessionToken);
+    const deviceId = session?.device_id || null;
+
+    if (deviceId) {
+      let recentCount = 0;
+      try {
+        recentCount = await countDeviceEventsInWindow({
+          deviceId,
+          eventType: 'chat_message_in',
+          windowSeconds: CHAT_WINDOW_SECONDS,
+        });
+      } catch (rateErr) {
+        console.error('[chatRoutes] db rate-limit check failed, fallback to local map', rateErr);
+        if (hitLocalRateFallback(deviceId)) {
+          return res.status(429).json({ error: 'RATE_LIMITED', message: RATE_LIMIT_TEXT_RU });
+        }
+      }
+
+      if (recentCount >= MAX_MESSAGES_PER_HOUR) {
+        await insertPerformanceMetric({
+          metricName: 'http.chat.message',
+          scope: 'chat',
+          durationMs: Date.now() - httpStart,
+          labels: {
+            source,
+            has_error: true,
+            reason: 'RATE_LIMITED',
+          },
+          meta: {},
+        });
+        return res.status(429).json({ error: 'RATE_LIMITED', message: RATE_LIMIT_TEXT_RU });
+      }
+    }
+  } catch (rateCheckErr) {
+    console.error('[chatRoutes] rate-limit precheck failed', rateCheckErr);
   }
 
   try {
