@@ -7,7 +7,7 @@ import { getMenuItemsBasicByCodes, getMenuItemWithDetailsById } from '../models/
 
 import { getRestaurantSettings } from '../models/restaurantSettingsModel.js';
 import { getWeatherForRestaurant } from '../services/weatherService.js';
-import { fetchMenuItemsWithDetails, suggestMenuItems } from '../services/menuService.js';
+import { suggestMenuItems } from '../services/menuService.js';
 
 import { build as buildUpsellTextEn } from './trustTextBuilder.js';
 
@@ -462,157 +462,6 @@ function detectConceptHintWords(queryUnderstanding) {
   return Array.from(out);
 }
 
-const INGREDIENT_CONCEPTS = new Set([
-  'chicken',
-  'meat',
-  'shrimp',
-  'tuna',
-  'salmon',
-  'crab',
-  'beef',
-  'veal',
-  'duck',
-]);
-
-function pickPrimaryConcept(understanding) {
-  const concepts = Array.isArray(understanding?.concepts) ? understanding.concepts : [];
-  if (!concepts.length) return null;
-  for (const concept of concepts) {
-    if (INGREDIENT_CONCEPTS.has(concept)) return concept;
-  }
-  return concepts[0] || null;
-}
-
-function conceptLabel(concept) {
-  const map = {
-    chicken: 'chicken',
-    meat: 'meat',
-    shrimp: 'shrimp',
-    tuna: 'tuna',
-    salmon: 'salmon',
-    crab: 'crab',
-    beef: 'beef',
-    veal: 'veal',
-    duck: 'duck',
-    soup: 'soups',
-    sushi: 'sushi',
-    sashimi: 'sashimi',
-    nigiri: 'nigiri',
-    gunkan: 'gunkan',
-    temaki: 'temaki',
-    noodles: 'noodles',
-    burger: 'burgers',
-    drink: 'drinks',
-    salad: 'salads',
-    dessert: 'desserts',
-    spicy: 'spicy options',
-    tequila: 'tequila options',
-  };
-  return map[concept] || concept;
-}
-
-function buildSuggestIntroText(understanding, hasSuggestions) {
-  const primary = pickPrimaryConcept(understanding);
-  if (!primary) {
-    return hasSuggestions
-      ? 'Here are a few ideas. Tap + to add items to your cart (you can add more than one).'
-      : "I couldn't find matching items right now.";
-  }
-
-  const label = conceptLabel(primary);
-  if (!hasSuggestions) {
-    return `I couldn't find items for "${label}" right now.`;
-  }
-  return `Here are items with ${label}:`;
-}
-
-function inferDishStyleFromDetails(mi) {
-  const hay = normalizeQueryText(
-    `${mi?.name_en || ''} ${mi?.name_ua || ''} ${mi?.description_en || ''} ${mi?.description_ua || ''} ${
-      Array.isArray(mi?.ingredients) ? mi.ingredients.join(' ') : ''
-    } ${Array.isArray(mi?.tags) ? mi.tags.join(' ') : ''} ${mi?.category || ''}`
-  );
-  return {
-    spicy: /\bspicy|chili|hot|pepper\b|гостр|остр|пікант/.test(hay),
-    meat: /\b(beef|chicken|duck|pork|veal|lamb|meat)\b|мяс|м’яс|м'яс|кур|кач|утк|ялович|теля/.test(hay),
-    seafood: /\b(crab|shrimp|prawn|tuna|salmon|eel|squid|octopus|seafood)\b|краб|кревет|тун|лосос|угор|морепродукт/.test(
-      hay
-    ),
-  };
-}
-
-function buildDishExplainTextEn(mi, userText = '') {
-  const name = mi?.name_en || mi?.name_ua || mi?.item_code || 'This dish';
-  const desc = mi?.description_en || mi?.description_ua || '';
-  const ingredients = Array.isArray(mi?.ingredients) ? mi.ingredients.filter(Boolean) : [];
-  const category = String(mi?.category || '').trim();
-  const style = inferDishStyleFromDetails(mi);
-  const q = normalizeQueryText(userText);
-
-  if (/\b(spicy|остр|гостр|пікант)\b/.test(q)) {
-    return style.spicy
-      ? `${name} is likely spicy or has a noticeable kick.`
-      : `${name} is usually not spicy.`;
-  }
-  if (/\b(мяс|мясн|м'яс|м’яс|meat|meaty)\b/.test(q)) {
-    return style.meat
-      ? `${name} is a meat-based dish.`
-      : `${name} is not primarily meat-based.`;
-  }
-  if (/\b(what is|что это|що це|about|describe|вкус|taste)\b/.test(q)) {
-    let text = `**${name}**`;
-    if (desc) text += `\n${desc}`;
-    else if (category) text += `\nIt belongs to ${category} category.`;
-    if (ingredients.length) text += `\n\nIngredients: ${ingredients.slice(0, 8).join(', ')}`;
-    return text;
-  }
-
-  let fallback = `**${name}**`;
-  if (desc) fallback += `\n${desc}`;
-  if (!desc && category) fallback += `\nCategory: ${category}.`;
-  if (ingredients.length) fallback += `\n\nIngredients: ${ingredients.slice(0, 8).join(', ')}`;
-  return fallback;
-}
-
-function isConversationalDishQuestion(text) {
-  const t = normalizeQueryText(text);
-  if (!t) return false;
-  return /(расскажи|опиши|что такое|what is|tell me about|describe|на вкус|taste|это остро|is it spicy|это мяс|is it meat)/i.test(
-    t
-  );
-}
-
-async function resolveItemDetailsForConversation({
-  session,
-  language,
-  normalizedText,
-  nlu,
-  dialogState,
-}) {
-  const fromNlu = Array.isArray(nlu?.items) ? nlu.items.find((it) => it?.menu_item_id) : null;
-  if (fromNlu?.menu_item_id) {
-    return getMenuItemWithDetailsById(fromNlu.menu_item_id);
-  }
-
-  const focusedId = dialogState?.last_focused_menu_item_id || dialogState?.lastFocusedMenuItemId || null;
-  if (focusedId) {
-    const focused = await getMenuItemWithDetailsById(focusedId);
-    if (focused && focused.is_active !== false) return focused;
-  }
-
-  const suggested = await suggestMenuItems(session.restaurant_id, {
-    query: normalizedText,
-    locale: language,
-    limit: 1,
-  });
-  const top = Array.isArray(suggested) ? suggested[0] : null;
-  const code = top?.item_code || top?.code || null;
-  if (!code) return null;
-
-  const detailed = await fetchMenuItemsWithDetails(session.restaurant_id, { onlyActive: true });
-  return (detailed || []).find((row) => row?.item_code === code) || null;
-}
-
 async function buildRecommendationsFromSuggestions(suggestions = [], limit = 4) {
   return dedupeByCode(
     (Array.isArray(suggestions) ? suggestions : [])
@@ -730,26 +579,6 @@ function buildNoAddFallbackText(understanding, hasSuggestions) {
     return hasSuggestions
       ? 'Here are tequila options.'
       : "I couldn't find tequila options right now.";
-  }
-  if (concepts.includes('shrimp')) {
-    return hasSuggestions
-      ? 'Here are dishes with shrimp.'
-      : "I couldn't find dishes with shrimp right now.";
-  }
-  if (concepts.includes('crab')) {
-    return hasSuggestions
-      ? 'Here are dishes with crab.'
-      : "I couldn't find dishes with crab right now.";
-  }
-  if (concepts.includes('salmon')) {
-    return hasSuggestions
-      ? 'Here are dishes with salmon.'
-      : "I couldn't find dishes with salmon right now.";
-  }
-  if (concepts.includes('tuna')) {
-    return hasSuggestions
-      ? 'Here are dishes with tuna.'
-      : "I couldn't find dishes with tuna right now.";
   }
   return hasSuggestions
     ? "I couldn't safely add an exact item yet, but here are the closest options."
@@ -1186,31 +1015,30 @@ case 'ask_menu': {
   const firstResolved = Array.isArray(nlu?.items)
     ? nlu.items.find((it) => it && it.menu_item_id)
     : null;
-  const conversationalMode = isConversationalDishQuestion(normalizedText);
 
   // 1) Specific dish: provide description + ingredients/allergens + CTA
-  if (firstResolved?.menu_item_id || conversationalMode) {
-    const mi = firstResolved?.menu_item_id
-      ? await getMenuItemWithDetailsById(firstResolved.menu_item_id)
-      : await resolveItemDetailsForConversation({
-          session,
-          language,
-          normalizedText,
-          nlu,
-          dialogState,
-        });
+  if (firstResolved?.menu_item_id) {
+    const mi = await getMenuItemWithDetailsById(firstResolved.menu_item_id);
 
     if (mi && mi.is_active !== false) {
+      const name = mi.name_en || mi.name_ua || mi.item_code || 'This item';
+      const desc = mi.description_en || mi.description_ua || '';
+      const ingredients = Array.isArray(mi.ingredients) ? mi.ingredients : [];
       const allergens = Array.isArray(mi.allergens)
         ? mi.allergens.map((a) => (a?.name ? a.name : a?.code)).filter(Boolean)
         : [];
-      let baseTextEn = buildDishExplainTextEn(mi, normalizedText);
-      if (!conversationalMode) {
-        if (allergens.length) {
-          baseTextEn += `\nAllergens: ${allergens.join(', ')}`;
-        }
-        baseTextEn += `\n\nWant to add it to your order?`;
+
+      let baseTextEn = `**${name}**`;
+      if (desc) baseTextEn += `\n${desc}`;
+
+      if (ingredients.length) {
+        baseTextEn += `\n\nIngredients: ${ingredients.join(', ')}`;
       }
+      if (allergens.length) {
+        baseTextEn += `\nAllergens: ${allergens.join(', ')}`;
+      }
+
+      baseTextEn += `\n\nWant to add it to your order?`;
 
       const reply = await respondInLanguage({
         baseTextEn,
@@ -1220,6 +1048,60 @@ case 'ask_menu': {
       return { nlu, handled: true, reply, order: orderForResponse };
     }
   }
+
+  // --- Heuristic: user asks to describe a specific dish by name (even if NLU didn't resolve menu_item_id)
+const dishInfoPatterns = [
+  /^СЂР°СЃСЃРєР°Р¶Рё РїСЂРѕ\s+/i,
+  /^СЂР°СЃСЃРєР°Р¶Рё Рѕ\s+/i,
+  /^С‡С‚Рѕ С‚Р°РєРѕРµ\s+/i,
+  /^С‡С‚Рѕ Р·Р°\s+/i,
+  /^РѕРїРёС€Рё\s+/i,
+  /^tell me about\s+/i,
+  /^describe\s+/i,
+];
+
+let extractedDishQuery = null;
+for (const re of dishInfoPatterns) {
+  if (re.test(normalizedText)) {
+    extractedDishQuery = normalizedText.replace(re, '').trim();
+    break;
+  }
+}
+
+// If user explicitly asked about a dish name, try to resolve it via existing semantic suggestion
+if (extractedDishQuery && extractedDishQuery.length >= 3) {
+  const top = await suggestMenuItems(session.restaurant_id, {
+    query: extractedDishQuery,
+    locale: language,
+    limit: 1,
+  });
+
+  const best = Array.isArray(top) ? top[0] : null;
+
+  // We treat it as a dish match only if we have an id (and optionally a score if you expose it)
+  if (best?.menu_item_id) {
+    const mi = await getMenuItemWithDetailsById(best.menu_item_id);
+
+    if (mi && mi.is_active !== false) {
+      const name = mi.name_en || mi.name_ua || mi.item_code || 'This item';
+      const desc = mi.description_en || mi.description_ua || '';
+      const ingredients = Array.isArray(mi.ingredients) ? mi.ingredients : [];
+      const allergens = Array.isArray(mi.allergens)
+        ? mi.allergens.map((a) => (a?.name ? a.name : a?.code)).filter(Boolean)
+        : [];
+
+      let baseTextEn = `**${name}**`;
+      if (desc) baseTextEn += `\n${desc}`;
+      if (ingredients.length) baseTextEn += `\n\nIngredients: ${ingredients.join(', ')}`;
+      if (allergens.length) baseTextEn += `\nAllergens: ${allergens.join(', ')}`;
+      baseTextEn += `\n\nWant to add it to your order?`;
+
+      const reply = await respondInLanguage({ baseTextEn, targetLanguage: language });
+      return { nlu, handled: true, reply, order: orderForResponse };
+    }
+  }
+}
+
 
   // 2) Recommendation / menu exploration: use existing semantic suggestion service
     // 2) Recommendation / menu exploration: use existing semantic suggestion service
@@ -1250,7 +1132,7 @@ if (!recommendations || recommendations.length === 0) {
 
   const baseTextEn = availabilityQ
     ? buildNoAddFallbackText(queryUnderstanding, true)
-    : buildSuggestIntroText(queryUnderstanding, true);
+    : 'Here are a few ideas. Tap + to add items to your cart (you can add more than one).';
 
   const reply = await respondInLanguage({
     baseTextEn,
@@ -1432,9 +1314,7 @@ case 'allergy_info': {
         const baseTextEn =
           mutationPolicy.mode === 'ask_clarify' && recommendations.length === 0
             ? "Please name the exact menu item you want to add."
-            : recommendations.length > 0
-            ? buildSuggestIntroText(queryUnderstanding, true)
-            : buildNoAddFallbackText(queryUnderstanding, false);
+            : buildNoAddFallbackText(queryUnderstanding, recommendations.length > 0);
 
         const reply = await respondInLanguage({
           baseTextEn,
@@ -2484,24 +2364,6 @@ case 'reject_upsell': {
 
 
 case 'info': {
-  if (isConversationalDishQuestion(normalizedText)) {
-    const mi = await resolveItemDetailsForConversation({
-      session,
-      language,
-      normalizedText,
-      nlu,
-      dialogState,
-    });
-    if (mi && mi.is_active !== false) {
-      const baseTextEn = buildDishExplainTextEn(mi, normalizedText);
-      const reply = await respondInLanguage({
-        baseTextEn,
-        targetLanguage: language,
-      });
-      return { nlu, handled: true, reply, order: orderForResponse };
-    }
-  }
-
   const baseTextEn =
     'Ask me anything about the menu, ingredients or the ordering format вЂ” IвЂ™ll try to answer.';
 

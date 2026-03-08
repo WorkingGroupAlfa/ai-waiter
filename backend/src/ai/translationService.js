@@ -8,45 +8,6 @@ const DEFAULT_TRANSLATION_MODEL =
   process.env.OPENAI_NLU_MODEL ||
   'gpt-4o-mini';
 
-function protectUiTokens(input) {
-  let text = String(input ?? '');
-  const slots = [];
-  let idx = 0;
-
-  const mark = (value) => {
-    const key = `__UI_TOKEN_${idx}__`;
-    slots.push({ key, value });
-    idx += 1;
-    return key;
-  };
-
-  const patterns = [
-    /```[\s\S]*?```/g, // fenced code blocks
-    /`[^`\n]+`/g, // inline code
-    /\[[^\]]*]\([^)]+\)/g, // markdown links/images
-    /<\/?[^>]+>/g, // html tags
-    /\{[a-zA-Z0-9_.-]+\}/g, // placeholders like {label}
-    /(?:[$€₴]\s?\d[\d\s.,]*)|(?:\d[\d\s.,]*\s?[$€₴])/g, // money
-    /\+\d+|\b\d[\d\s.,]*\b/g, // numbers and +numbers
-    /(?:^|\s)\+(?=\s|$)/g, // standalone plus button
-    /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, // emoji/symbols
-  ];
-
-  for (const pattern of patterns) {
-    text = text.replace(pattern, (m) => mark(m));
-  }
-
-  return { text, slots };
-}
-
-function restoreUiTokens(input, slots = []) {
-  let out = String(input ?? '');
-  for (const slot of slots) {
-    out = out.split(slot.key).join(slot.value);
-  }
-  return out;
-}
-
 /**
  * Перевод текста в EN для semantic matching.
  *
@@ -112,11 +73,9 @@ export async function translateFromEnglish(textEn, targetLang) {
   }
 
   const systemPrompt =
-    'You are a translation engine. Translate from English into the requested target language. Keep placeholders like __UI_TOKEN_0__ unchanged and in the same order. Return ONLY translated text.';
+    'You are a translation engine. Translate from English into the requested target language. Return ONLY the translated text without any explanations.';
 
-  const protectedPayload = protectUiTokens(original);
-
-  const userPayload = `Target language: ${targetLang}\nText:\n${protectedPayload.text}`;
+  const userPayload = `Target language: ${targetLang}\nText:\n${original}`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -130,9 +89,8 @@ export async function translateFromEnglish(textEn, targetLang) {
 
     const translated = completion.choices?.[0]?.message?.content?.trim();
     if (!translated) return original;
-    const restored = restoreUiTokens(translated, protectedPayload.slots);
-    if (/__UI_TOKEN_\d+__/.test(restored)) return original;
-    return restored;
+
+    return translated;
   } catch (err) {
     console.error('[translationService] translateFromEnglish error', err);
     return original;
@@ -161,13 +119,11 @@ export async function translateText(text, targetLang, sourceLang = null) {
   }
 
   const systemPrompt =
-    'You are a translation engine for restaurant UI text. Translate naturally into the target language. Keep placeholders like __UI_TOKEN_0__ unchanged and in the same order. Keep dish names and culinary terms semantically correct (not transliterated when a standard translation exists). Return ONLY translated text.';
-
-  const protectedPayload = protectUiTokens(original);
+    'You are a translation engine for restaurant UI text. Translate naturally into the target language. Keep dish names and culinary terms semantically correct (not transliterated when a standard translation exists). Return ONLY translated text.';
 
   const userPayload = sourceLang
-    ? `Source language: ${sourceLang}\nTarget language: ${target}\nText:\n${protectedPayload.text}`
-    : `Target language: ${target}\nText:\n${protectedPayload.text}`;
+    ? `Source language: ${sourceLang}\nTarget language: ${target}\nText:\n${original}`
+    : `Target language: ${target}\nText:\n${original}`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -181,9 +137,7 @@ export async function translateText(text, targetLang, sourceLang = null) {
 
     const translated = completion.choices?.[0]?.message?.content?.trim();
     if (!translated) return original;
-    const restored = restoreUiTokens(translated, protectedPayload.slots);
-    if (/__UI_TOKEN_\d+__/.test(restored)) return original;
-    return restored;
+    return translated;
   } catch (err) {
     console.error('[translationService] translateText error', err);
     return original;
