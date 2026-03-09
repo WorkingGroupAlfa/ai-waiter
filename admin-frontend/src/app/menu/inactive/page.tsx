@@ -20,6 +20,7 @@ interface MenuItem {
   ingredients?: string[] | null;
   allergens?: string[] | null;
   photos?: string[] | null;
+  protect_name_from_translation?: boolean;
 }
 
 type SortKey = 'name' | 'price' | 'code';
@@ -75,6 +76,9 @@ export default function InactiveMenuPage() {
         ingredients: Array.isArray(item.ingredients) ? item.ingredients : [],
         allergens: Array.isArray(item.allergens) ? item.allergens : [],
         photos: Array.isArray(item.photos) ? item.photos : [],
+        ...(item.protect_name_from_translation == null
+          ? {}
+          : { protect_name_from_translation: Boolean(item.protect_name_from_translation) }),
       };
 
       await apiClient.post('/admin/menu/items', payload);

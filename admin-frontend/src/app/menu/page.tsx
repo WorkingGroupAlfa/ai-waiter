@@ -33,6 +33,7 @@ interface MenuItem {
   ingredients?: string[] | null;
   allergens?: string[] | null;
   photos?: string[] | null;
+  protect_name_from_translation?: boolean;
 }
 
 interface CustomCategory {
@@ -145,6 +146,13 @@ export default function MenuPage() {
     }
   }, [sheetOptions, selectedSheet]);
 
+  useEffect(() => {
+    const category = String(form.category || '').trim().toLowerCase();
+    if (category === 'drink' && form.protect_name_from_translation == null) {
+      setForm(prev => ({ ...prev, protect_name_from_translation: true }));
+    }
+  }, [form.category, form.protect_name_from_translation]);
+
   const selectedSheetLabel =
     sheetOptions.find(s => s.value === selectedSheet)?.label || 'Select category';
 
@@ -195,6 +203,7 @@ export default function MenuPage() {
       tags: [],
       custom_category_ids: selectedSheet && selectedSheet !== SHEET_UNASSIGNED ? [selectedSheet] : [],
       is_active: true,
+      protect_name_from_translation: undefined,
     });
     setIngredientsText('');
     setAllergensText('');
@@ -214,6 +223,7 @@ export default function MenuPage() {
       tags: Array.isArray(item.tags) ? item.tags : [],
       custom_category_ids: Array.isArray(item.custom_category_ids) ? item.custom_category_ids : [],
       is_active: item.is_active,
+      protect_name_from_translation: Boolean(item.protect_name_from_translation),
     });
     setIngredientsText((item.ingredients || []).join(', '));
     setAllergensText((item.allergens || []).join(', '));
@@ -269,6 +279,9 @@ export default function MenuPage() {
         ingredients: parseCommaList(ingredientsText),
         allergens: parseCommaList(allergensText),
         photos: parseCommaList(photosText).map(normalizePhotoInput).filter(Boolean),
+        ...(form.protect_name_from_translation == null
+          ? {}
+          : { protect_name_from_translation: Boolean(form.protect_name_from_translation) }),
       };
 
       await apiClient.post('/admin/menu/items', payload);
@@ -324,6 +337,9 @@ export default function MenuPage() {
         ingredients: Array.isArray(item.ingredients) ? item.ingredients : [],
         allergens: Array.isArray(item.allergens) ? item.allergens : [],
         photos,
+        ...(item.protect_name_from_translation == null
+          ? {}
+          : { protect_name_from_translation: Boolean(item.protect_name_from_translation) }),
       };
 
       await apiClient.post('/admin/menu/items', payload);
@@ -430,6 +446,7 @@ export default function MenuPage() {
                   <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Base category</th>
                   <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Custom categories</th>
                   <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Tags</th>
+                  <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>No-translate</th>
                   <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Photo URL</th>
                   <th className="border px-2 py-1" style={{ position: 'sticky', top: 0, zIndex: 2 }}>Actions</th>
                 </tr>
@@ -462,6 +479,9 @@ export default function MenuPage() {
                       ) : (
                         <span className="text-xs opacity-70">—</span>
                       )}
+                    </td>
+                    <td className="border px-2 py-1">
+                      {Boolean(item.protect_name_from_translation) ? 'On' : 'Off'}
                     </td>
                     <td className="border px-2 py-1" style={{ minWidth: 260 }}>
                       <input
@@ -499,7 +519,7 @@ export default function MenuPage() {
                 ))}
                 {!visibleItems.length && (
                   <tr>
-                    <td colSpan={9} className="border px-2 py-2">
+                    <td colSpan={10} className="border px-2 py-2">
                       No dishes in this sheet
                     </td>
                   </tr>
@@ -575,6 +595,17 @@ export default function MenuPage() {
               </datalist>
             </div>
           </div>
+
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.protect_name_from_translation)}
+              onChange={e => updateForm('protect_name_from_translation', e.target.checked as any)}
+            />
+            <span style={{ fontSize: '0.85rem' }}>
+              Protect item name from translation (for drinks/brands)
+            </span>
+          </label>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <label>Tags (standard)</label>
