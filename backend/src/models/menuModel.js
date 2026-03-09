@@ -34,6 +34,7 @@ export async function getMenuItems(restaurantId, { onlyActive = true } = {}) {
         ARRAY[]::text[]
       ) AS custom_category_ids,
       is_active,
+      protect_name_from_translation,
       ingredients,
       allergens
     FROM menu_items
@@ -70,6 +71,7 @@ export async function getMenuItemById(id) {
         ARRAY[]::text[]
       ) AS custom_category_ids,
       is_active,
+      protect_name_from_translation,
       ingredients,
       allergens
     FROM menu_items
@@ -128,6 +130,7 @@ export async function getMenuItemsBasicByCodes(restaurantId, itemCodes = []) {
     SELECT
       m.item_code,
       m.base_price,
+      m.protect_name_from_translation,
       COALESCE(
         json_agg(p.url ORDER BY p.sort_order)
           FILTER (WHERE p.id IS NOT NULL),
@@ -137,7 +140,7 @@ export async function getMenuItemsBasicByCodes(restaurantId, itemCodes = []) {
     LEFT JOIN menu_item_photos p ON p.menu_item_id = m.id
     WHERE m.restaurant_id = $1
       AND m.item_code = ANY($2::text[])
-    GROUP BY m.item_code, m.base_price
+    GROUP BY m.item_code, m.base_price, m.protect_name_from_translation
   `;
 
   const result = await query(sql, [restaurantId, itemCodes]);
@@ -162,6 +165,7 @@ export async function upsertMenuItem({
   category = null,
   tags = [],
   is_active = true,
+  protect_name_from_translation = undefined,
   ingredients = [],
   allergens = [],
 }) {
@@ -191,8 +195,9 @@ export async function upsertMenuItem({
         is_active       = $10,
         ingredients     = $11::jsonb,
         allergens       = $12::jsonb,
+        protect_name_from_translation = COALESCE($13::boolean, protect_name_from_translation),
         updated_at      = NOW()
-      WHERE id = $13
+      WHERE id = $14
       RETURNING *;
     `;
     const result = await query(sql, [
@@ -208,6 +213,7 @@ export async function upsertMenuItem({
       is_active,
       ingredientsJson,
       allergensJson,
+      protect_name_from_translation,
       id,
     ]);
     return result.rows[0];
@@ -225,10 +231,15 @@ export async function upsertMenuItem({
       category,
       tags,
       is_active,
+      protect_name_from_translation,
       ingredients,
       allergens
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb)
+    VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+      COALESCE($11::boolean, CASE WHEN lower(COALESCE($8, '')) = 'drink' THEN TRUE ELSE FALSE END),
+      $12::jsonb,$13::jsonb
+    )
     ON CONFLICT (restaurant_id, item_code)
     DO UPDATE SET
       name_ua        = EXCLUDED.name_ua,
@@ -239,6 +250,10 @@ export async function upsertMenuItem({
       category       = EXCLUDED.category,
       tags           = EXCLUDED.tags,
       is_active      = EXCLUDED.is_active,
+      protect_name_from_translation = COALESCE(
+        EXCLUDED.protect_name_from_translation,
+        menu_items.protect_name_from_translation
+      ),
       ingredients    = EXCLUDED.ingredients,
       allergens      = EXCLUDED.allergens,
       updated_at     = NOW()
@@ -255,6 +270,7 @@ export async function upsertMenuItem({
     category,
     tags,
     is_active,
+    protect_name_from_translation,
     ingredientsJson,
     allergensJson,
   ]);
@@ -423,6 +439,7 @@ export async function getMenuItemWithDetailsById(id) {
         ARRAY[]::text[]
       ) AS custom_category_ids,
       m.is_active,
+      m.protect_name_from_translation,
       m.ingredients AS ingredients_json,
       m.allergens  AS allergens_json,
       COALESCE(
@@ -486,6 +503,7 @@ export async function getMenuItemsWithDetails(
         ARRAY[]::text[]
       ) AS custom_category_ids,
       m.is_active,
+      m.protect_name_from_translation,
       m.ingredients AS ingredients_json,
       m.allergens  AS allergens_json,
       COALESCE(
@@ -536,6 +554,7 @@ export async function getActiveMenuItemsByCodes(restaurantId, itemCodes = []) {
       base_price,
       category,
       tags,
+      protect_name_from_translation,
       is_active
     FROM menu_items
     WHERE restaurant_id = $1

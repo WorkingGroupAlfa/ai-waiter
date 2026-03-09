@@ -124,6 +124,7 @@ export async function getCustomCategoryRecommendations({
       name: it.name || it.item_code,
       unitPrice: it.price != null ? Number(it.price) : null,
       imageUrl: it.image_url || null,
+      protect_name_from_translation: Boolean(it.protect_name_from_translation),
     }))
     .filter((it) => Boolean(it.code));
 }

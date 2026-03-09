@@ -11,6 +11,38 @@ function asText(v) {
   return String(v ?? '').trim();
 }
 
+function hasCyrillic(text) {
+  return /[\u0400-\u04FF]/.test(String(text || ''));
+}
+
+function hasLatin(text) {
+  return /[A-Za-z]/.test(String(text || ''));
+}
+
+function looksLikeProtectedBrandName(text) {
+  const s = asText(text);
+  if (!s) return false;
+  if (!hasLatin(s) || hasCyrillic(s)) return false;
+  if (s.length < 2) return false;
+
+  // Typical alcohol/cocktail/brand patterns.
+  if (/[’']/.test(s)) return true;
+  if (/\b[A-Z]{2,}\b/.test(s)) return true;
+  if (/\b[A-Z][a-z]+\s+[A-Za-z0-9][A-Za-z0-9'’.-]+/.test(s)) return true;
+  if (/\b[A-Za-z]+[-/][A-Za-z0-9]+\b/.test(s)) return true;
+  if (/\b\d+[A-Za-z]*\b/.test(s)) return true;
+
+  return false;
+}
+
+function shouldProtectItemName(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (item.protect_name_from_translation === true) return true;
+  if (item.protectNameFromTranslation === true) return true;
+  const n = asText(item.raw_name || item.name || item.display_name || item.code || item.item_code);
+  return looksLikeProtectedBrandName(n);
+}
+
 const translationCache = new Map();
 
 async function translateTextRuntime(text, lang) {
@@ -36,19 +68,25 @@ function patchDisplayNames({ orderDraft, upsell, recommendations, customCategori
   if (orderDraft && Array.isArray(orderDraft.items)) {
     orderDraft.items = orderDraft.items.map((it) => ({
       ...it,
-      display_name: asText(it.display_name || it.name || it.code),
+      display_name: shouldProtectItemName(it)
+        ? asText(it.raw_name || it.name || it.code)
+        : asText(it.display_name || it.name || it.code),
     }));
   }
   if (upsell && Array.isArray(upsell.items)) {
     upsell.items = upsell.items.map((it) => ({
       ...it,
-      display_name: asText(it.display_name || it.name || it.code),
+      display_name: shouldProtectItemName(it)
+        ? asText(it.raw_name || it.name || it.code)
+        : asText(it.display_name || it.name || it.code),
     }));
   }
   if (Array.isArray(recommendations)) {
     recommendations = recommendations.map((it) => ({
       ...it,
-      display_name: asText(it.display_name || it.name || it.code || it.item_code),
+      display_name: shouldProtectItemName(it)
+        ? asText(it.raw_name || it.name || it.code || it.item_code)
+        : asText(it.display_name || it.name || it.code || it.item_code),
     }));
   }
   return { orderDraft, upsell, recommendations, customCategories };
@@ -83,10 +121,14 @@ export async function localizeUiPayloadBatch({
   };
 
   add('reply', -1, localized.replyText);
-  (localized.orderDraft?.items || []).forEach((it, i) => add('order_item', i, it?.name));
-  (localized.upsell?.items || []).forEach((it, i) => add('upsell_item', i, it?.name));
+  (localized.orderDraft?.items || []).forEach((it, i) => {
+    if (!shouldProtectItemName(it)) add('order_item', i, it?.name);
+  });
+  (localized.upsell?.items || []).forEach((it, i) => {
+    if (!shouldProtectItemName(it)) add('upsell_item', i, it?.name);
+  });
   (Array.isArray(localized.recommendations) ? localized.recommendations : []).forEach((it, i) =>
-    add('recommendation_item', i, it?.name)
+    !shouldProtectItemName(it) ? add('recommendation_item', i, it?.name) : null
   );
   localized.customCategories.forEach((name, i) => add('custom_category', i, name));
 
@@ -128,6 +170,29 @@ export async function localizeUiPayloadBatch({
       } else if (entry.kind === 'custom_category' && localized.customCategories[entry.index] != null) {
         localized.customCategories[entry.index] = translated;
       }
+    });
+
+    // Keep protected menu names in original form.
+    (localized.orderDraft?.items || []).forEach((it) => {
+      if (!shouldProtectItemName(it)) return;
+      const raw = asText(it.raw_name || it.name || it.code);
+      it.raw_name = raw;
+      it.name = raw;
+      it.display_name = raw;
+    });
+    (localized.upsell?.items || []).forEach((it) => {
+      if (!shouldProtectItemName(it)) return;
+      const raw = asText(it.raw_name || it.name || it.code);
+      it.raw_name = raw;
+      it.name = raw;
+      it.display_name = raw;
+    });
+    (Array.isArray(localized.recommendations) ? localized.recommendations : []).forEach((it) => {
+      if (!shouldProtectItemName(it)) return;
+      const raw = asText(it.raw_name || it.name || it.code || it.item_code);
+      it.raw_name = raw;
+      it.name = raw;
+      it.display_name = raw;
     });
   } catch (err) {
     console.error('[runtimeUiLocalization] batch localization failed', err);

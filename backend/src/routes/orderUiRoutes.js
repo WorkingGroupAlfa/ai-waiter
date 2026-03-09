@@ -23,6 +23,7 @@ import { loadDeviceMemory } from '../ai/memoryService.js'; // если путь 
 
 
 import { localizeUiPayloadBatch } from '../i18n/runtimeUiLocalization.js';
+import { getMenuItemsBasicByCodes } from '../models/menuModel.js';
 
 export const orderUiRouter = express.Router();
 
@@ -377,6 +378,50 @@ if (items.length) {
 }
 
 const targetLanguage = await resolveUiLanguage({ payload, session });
+
+try {
+  const codes = new Set();
+  (orderDraft?.items || []).forEach((it) => {
+    const c = it?.code || it?.item_code;
+    if (c) codes.add(String(c));
+  });
+  (upsell?.items || []).forEach((it) => {
+    const c = it?.code || it?.item_code;
+    if (c) codes.add(String(c));
+  });
+
+  if (codes.size > 0) {
+    const rows = await getMenuItemsBasicByCodes(session.restaurant_id, Array.from(codes));
+    const byCode = new Map(rows.map((r) => [String(r.item_code), r]));
+
+    if (orderDraft?.items?.length) {
+      orderDraft.items = orderDraft.items.map((it) => {
+        const row = byCode.get(String(it.code || it.item_code || '')) || null;
+        return {
+          ...it,
+          protect_name_from_translation: Boolean(
+            it?.protect_name_from_translation ?? row?.protect_name_from_translation
+          ),
+        };
+      });
+    }
+
+    if (upsell?.items?.length) {
+      upsell.items = upsell.items.map((it) => {
+        const row = byCode.get(String(it.code || it.item_code || '')) || null;
+        return {
+          ...it,
+          protect_name_from_translation: Boolean(
+            it?.protect_name_from_translation ?? row?.protect_name_from_translation
+          ),
+        };
+      });
+    }
+  }
+} catch (enrichErr) {
+  console.error('[order/ui-update] protect-name enrichment failed:', enrichErr);
+}
+
 const localizedPayload = await localizeUiPayloadBatch({
   targetLanguage,
   replyText: '',

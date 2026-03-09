@@ -189,6 +189,7 @@ export async function getMenuItemsByCustomCategory({
       m.item_code,
       COALESCE(m.name_en, m.name_ua) AS name,
       m.base_price AS price,
+      m.protect_name_from_translation,
       (
         SELECT p.url
         FROM menu_item_photos p

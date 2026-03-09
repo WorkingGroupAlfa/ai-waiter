@@ -8,6 +8,68 @@ const DEFAULT_TRANSLATION_MODEL =
   process.env.OPENAI_NLU_MODEL ||
   'gpt-4o-mini';
 
+function escapeRegExp(s) {
+  return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function collectLikelyBrandTerms(text) {
+  const src = String(text || '');
+  const out = new Set();
+
+  // Markdown bold chunks (often dish/drink names).
+  for (const m of src.matchAll(/\*\*([^*]{2,80})\*\*/g)) {
+    if (m?.[1]) out.add(String(m[1]).trim());
+  }
+
+  // Latin-name patterns typical for brands/cocktails.
+  const patterns = [
+    /\b[A-Z][A-Za-z0-9'’.-]{1,}\s+[A-Za-z0-9'’.-]{2,}(?:\s+[A-Za-z0-9'’.-]{2,}){0,2}\b/g,
+    /\b[A-Za-z]+['’][A-Za-z]+(?:\s+[A-Za-z0-9'’.-]+){0,2}\b/g,
+    /\b[A-Za-z]+[-/][A-Za-z0-9]+(?:\s+[A-Za-z0-9'’.-]+){0,2}\b/g,
+    /\b[A-Z]{2,}(?:\s+[A-Z]{2,}){0,2}\b/g,
+    /\b[A-Za-z]-\d{1,3}\b/g,
+  ];
+
+  for (const re of patterns) {
+    for (const m of src.matchAll(re)) {
+      const v = String(m?.[0] || '').trim();
+      if (!v) continue;
+      if (!/[A-Za-z]/.test(v)) continue;
+      if (/^(here|there|please|target|source|text|ingredients|allergens|want|add|order)$/i.test(v)) continue;
+      if (v.length < 2 || v.length > 80) continue;
+      out.add(v);
+    }
+  }
+
+  return Array.from(out);
+}
+
+function protectTerms(text, terms = []) {
+  let out = String(text || '');
+  const slots = [];
+  const uniqTerms = Array.from(
+    new Set((Array.isArray(terms) ? terms : []).map((x) => String(x || '').trim()).filter(Boolean))
+  ).sort((a, b) => b.length - a.length);
+
+  for (const term of uniqTerms) {
+    const key = `__ENTITY_${slots.length}__`;
+    const re = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'g');
+    if (!re.test(out)) continue;
+    out = out.replace(re, key);
+    slots.push({ key, value: term });
+  }
+
+  return { text: out, slots };
+}
+
+function restoreTerms(text, slots = []) {
+  let out = String(text || '');
+  for (const slot of slots) {
+    out = out.replaceAll(slot.key, slot.value);
+  }
+  return out;
+}
+
 /**
  * Перевод текста в EN для semantic matching.
  *
@@ -27,7 +89,7 @@ export async function translateToEnglish(text, sourceLang) {
   }
 
   const systemPrompt =
-    'You translate restaurant user queries into concise English for menu search. Preserve food entities and normalize transliterated dish words to canonical culinary terms when obvious (for example: rolls, sushi, sashimi, gunkan, temaki, soup, tuna, salmon, crab, shrimp). Return ONLY the translated query text.';
+    'You translate restaurant user queries into concise English for menu search. Preserve food entities and proper product/brand/cocktail names (do not literally translate them). Normalize transliterated dish words to canonical culinary terms when obvious (for example: rolls, sushi, sashimi, gunkan, temaki, soup, tuna, salmon, crab, shrimp). Return ONLY the translated query text.';
 
   const userPayload = sourceLang
     ? `Source language: ${sourceLang}\nText:\n${original}`
@@ -72,10 +134,13 @@ export async function translateFromEnglish(textEn, targetLang) {
     return original;
   }
 
-  const systemPrompt =
-    'You are a translation engine. Translate from English into the requested target language. Return ONLY the translated text without any explanations.';
+  const autoProtected = collectLikelyBrandTerms(original);
+  const protectedPayload = protectTerms(original, autoProtected);
 
-  const userPayload = `Target language: ${targetLang}\nText:\n${original}`;
+  const systemPrompt =
+    'You are a translation engine. Translate from English into the requested target language. Keep placeholders like __ENTITY_0__ unchanged. Do not literally translate product/brand/cocktail proper names. Return ONLY the translated text without explanations.';
+
+  const userPayload = `Target language: ${targetLang}\nText:\n${protectedPayload.text}`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -89,8 +154,7 @@ export async function translateFromEnglish(textEn, targetLang) {
 
     const translated = completion.choices?.[0]?.message?.content?.trim();
     if (!translated) return original;
-
-    return translated;
+    return restoreTerms(translated, protectedPayload.slots);
   } catch (err) {
     console.error('[translationService] translateFromEnglish error', err);
     return original;
@@ -118,12 +182,15 @@ export async function translateText(text, targetLang, sourceLang = null) {
     return original;
   }
 
+  const autoProtected = collectLikelyBrandTerms(original);
+  const protectedPayload = protectTerms(original, autoProtected);
+
   const systemPrompt =
-    'You are a translation engine for restaurant UI text. Translate naturally into the target language. Keep dish names and culinary terms semantically correct (not transliterated when a standard translation exists). Return ONLY translated text.';
+    'You are a translation engine for restaurant UI text. Translate naturally into the target language. Keep placeholders like __ENTITY_0__ unchanged. Do not literally translate product/brand/cocktail proper names. Keep dish names and culinary terms semantically correct (not transliterated when a standard translation exists). Return ONLY translated text.';
 
   const userPayload = sourceLang
-    ? `Source language: ${sourceLang}\nTarget language: ${target}\nText:\n${original}`
-    : `Target language: ${target}\nText:\n${original}`;
+    ? `Source language: ${sourceLang}\nTarget language: ${target}\nText:\n${protectedPayload.text}`
+    : `Target language: ${target}\nText:\n${protectedPayload.text}`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -137,7 +204,7 @@ export async function translateText(text, targetLang, sourceLang = null) {
 
     const translated = completion.choices?.[0]?.message?.content?.trim();
     if (!translated) return original;
-    return translated;
+    return restoreTerms(translated, protectedPayload.slots);
   } catch (err) {
     console.error('[translationService] translateText error', err);
     return original;

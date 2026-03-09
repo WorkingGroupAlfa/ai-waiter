@@ -41,7 +41,7 @@ async function pickByTags(restaurantId, tags, limit = 6) {
   if (!tags?.length) return [];
   const { rows } = await query(
     `
-    SELECT item_code, COALESCE(name_en, name_ua) AS name_any
+    SELECT item_code, COALESCE(name_en, name_ua) AS name_any, protect_name_from_translation
     FROM menu_items
     WHERE restaurant_id = $1 AND is_active = TRUE
       AND (tags && $2::text[])
@@ -128,6 +128,7 @@ async function pickByIngredientsOrName(restaurantId, queryText, limit = 6) {
       m.item_code,
       COALESCE(m.name_en, m.name_ua) AS name_any,
       m.base_price,
+      m.protect_name_from_translation,
       (
         SELECT p.url
         FROM menu_item_photos p
@@ -251,6 +252,9 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
         name: m.name_en || m.item_code,
         price: base?.base_price ?? null,
         image_url: photos.length ? photos[0] : null,
+        protect_name_from_translation: Boolean(
+          m.protect_name_from_translation ?? base?.protect_name_from_translation
+        ),
       };
     });
   };
@@ -297,6 +301,9 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
           name: r.name_any || r.item_code,
           price: base?.base_price ?? null,
           image_url: imageUrl,
+          protect_name_from_translation: Boolean(
+            r.protect_name_from_translation ?? base?.protect_name_from_translation
+          ),
         };
       });
     }
@@ -316,6 +323,7 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
         name: r.name || r.item_code,
         price: r.price ?? null,
         image_url: r.image_url || null,
+        protect_name_from_translation: Boolean(r.protect_name_from_translation),
       }));
     }
   }
@@ -332,6 +340,7 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
       name: r.name_any || r.item_code,
       price: r.base_price ?? null,
       image_url: r.image_url || null,
+      protect_name_from_translation: Boolean(r.protect_name_from_translation),
     }));
   }
 
@@ -355,6 +364,9 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
             name: r.name_any || r.item_code,
             price: base?.base_price ?? null,
             image_url: imageUrl,
+            protect_name_from_translation: Boolean(
+              r.protect_name_from_translation ?? base?.protect_name_from_translation
+            ),
           };
         });
       }
@@ -376,6 +388,7 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
           name: r.name || r.item_code,
           price: r.price ?? null,
           image_url: r.image_url || null,
+          protect_name_from_translation: Boolean(r.protect_name_from_translation),
         }));
       }
     }
@@ -391,6 +404,7 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
         name: r.name_any || r.item_code,
         price: r.base_price ?? null,
         image_url: r.image_url || null,
+        protect_name_from_translation: Boolean(r.protect_name_from_translation),
       }));
     }
   }
@@ -421,6 +435,9 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
       name: m.name_en || m.item_code,
       price: base?.base_price ?? null,
       image_url: imageUrl,
+      protect_name_from_translation: Boolean(
+        m.protect_name_from_translation ?? base?.protect_name_from_translation
+      ),
     };
   });
 }

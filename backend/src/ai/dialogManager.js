@@ -471,6 +471,7 @@ async function buildRecommendationsFromSuggestions(suggestions = [], limit = 4) 
         name: s.name || s.name_en || s.name_local || s.item_code || s.code,
         unitPrice: s.price != null ? Number(s.price) : null,
         imageUrl: s.image_url || s.imageUrl || null,
+        protect_name_from_translation: Boolean(s.protect_name_from_translation),
       }))
       .filter((s) => Boolean(s.code))
   );
@@ -2673,6 +2674,7 @@ if (!currentOrder) {
             row.base_price != null ? Number(row.base_price) : null,
           imageUrl:
             Array.isArray(photos) && photos.length > 0 ? photos[0] : null,
+          protectNameFromTranslation: Boolean(row.protect_name_from_translation),
         };
       }
 
@@ -2689,6 +2691,9 @@ if (!currentOrder) {
                 ? it.unitPrice
                 : meta.unitPrice ?? it.unitPrice ?? null,
             imageUrl: meta.imageUrl || null,
+            protect_name_from_translation: Boolean(
+              it.protect_name_from_translation ?? meta.protectNameFromTranslation
+            ),
           };
         });
       }
@@ -2701,6 +2706,9 @@ if (!currentOrder) {
             ...u,
             unitPrice: meta.unitPrice ?? null,
             imageUrl: meta.imageUrl || null,
+            protect_name_from_translation: Boolean(
+              u.protect_name_from_translation ?? meta.protectNameFromTranslation
+            ),
           };
         });
       }
@@ -2715,6 +2723,9 @@ if (!currentOrder) {
           // fill missing fields from menu
           if (r.unitPrice == null && meta.unitPrice != null) r.unitPrice = meta.unitPrice;
           if (!r.imageUrl && meta.imageUrl) r.imageUrl = meta.imageUrl;
+          if (r.protect_name_from_translation == null) {
+            r.protect_name_from_translation = Boolean(meta.protectNameFromTranslation);
+          }
 
           // normalize
           if (!r.code) r.code = code;

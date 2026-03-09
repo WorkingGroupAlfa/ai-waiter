@@ -56,6 +56,16 @@ export async function createOrUpdateMenuItemWithDetails(payload) {
     custom_category_ids = [],
   } = payload;
 
+  const hasProtectFlag = Object.prototype.hasOwnProperty.call(
+    payload || {},
+    'protect_name_from_translation'
+  );
+  const protectNameFromTranslation = hasProtectFlag
+    ? Boolean(payload.protect_name_from_translation)
+    : String(category || '').trim().toLowerCase() === 'drink'
+    ? true
+    : undefined;
+
   // 1. Upsert самого блюда (+ JSON-поля состав/аллергены).
   const menuItem = await upsertMenuItem({
     id,
@@ -69,6 +79,7 @@ export async function createOrUpdateMenuItemWithDetails(payload) {
     category,
     tags,
     is_active,
+    protect_name_from_translation: protectNameFromTranslation,
     ingredients,
     allergens,
   });
