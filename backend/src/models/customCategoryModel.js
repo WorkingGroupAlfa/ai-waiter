@@ -277,6 +277,41 @@ export async function findCustomCategoryByMention(restaurantId, mentionText = ''
       .filter((t) => t.length >= 3 && !GENERIC_TOKENS.has(t))
   );
 
+  function levenshteinDistance(a, b) {
+    const s = String(a || '');
+    const t = String(b || '');
+    const n = s.length;
+    const m = t.length;
+    if (n === 0) return m;
+    if (m === 0) return n;
+
+    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = 0; i <= n; i += 1) dp[i][0] = i;
+    for (let j = 0; j <= m; j += 1) dp[0][j] = j;
+
+    for (let i = 1; i <= n; i += 1) {
+      for (let j = 1; j <= m; j += 1) {
+        const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
+    }
+    return dp[n][m];
+  }
+
+  function similarityRatio(a, b) {
+    const x = normalize(a);
+    const y = normalize(b);
+    if (!x || !y) return 0;
+    if (x === y) return 1;
+    const dist = levenshteinDistance(x, y);
+    const maxLen = Math.max(x.length, y.length) || 1;
+    return 1 - dist / maxLen;
+  }
+
   const addKnownAliases = (terms, row) => {
     const title = normalize(row?.name_ua || row?.name_en || row?.slug || '');
     if (!title) return;
@@ -319,24 +354,62 @@ export async function findCustomCategoryByMention(restaurantId, mentionText = ''
     );
   };
 
+  let bestRow = null;
+  let bestScore = 0;
+
   for (const row of rows) {
     const terms = getTerms(row);
-    const strong = terms.some((t) => {
-      if (!t) return false;
-      if (mentionNorm === t) return true;
-      if (mentionNorm.includes(t)) return true;
-      if (t.includes(mentionNorm) && mentionNorm.length >= 4) return true;
-      const tt = t.split(' ').filter(Boolean);
-      return tt.some(
-        (w) =>
-          w.length >= 4 &&
-          !GENERIC_TOKENS.has(w) &&
-          mentionTokens.has(w)
-      );
-    });
+    let rowScore = 0;
 
-    if (strong) return row;
+    for (const t of terms) {
+      if (!t) continue;
+
+      if (mentionNorm === t) {
+        rowScore = Math.max(rowScore, 100);
+        continue;
+      }
+
+      if (mentionNorm.includes(t) && t.length >= 3) {
+        rowScore = Math.max(rowScore, Math.min(95, 50 + t.length));
+      }
+      if (t.includes(mentionNorm) && mentionNorm.length >= 4) {
+        rowScore = Math.max(rowScore, Math.min(90, 45 + mentionNorm.length));
+      }
+
+      const termTokens = t
+        .split(' ')
+        .map((x) => x.trim())
+        .filter((x) => x.length >= 3 && !GENERIC_TOKENS.has(x));
+
+      let tokenOverlap = 0;
+      for (const w of termTokens) {
+        if (mentionTokens.has(w)) tokenOverlap += 1;
+      }
+      if (tokenOverlap > 0) {
+        rowScore = Math.max(rowScore, 60 + tokenOverlap * 12);
+      }
+
+      // Typo/translit tolerance for short category names.
+      for (const mt of mentionTokens) {
+        if (mt.length < 4) continue;
+        for (const tw of termTokens) {
+          if (tw.length < 4) continue;
+          const sim = similarityRatio(mt, tw);
+          if (sim >= 0.86) {
+            rowScore = Math.max(rowScore, 72);
+          }
+        }
+      }
+    }
+
+    if (rowScore > bestScore) {
+      bestScore = rowScore;
+      bestRow = row;
+    }
   }
+
+  // Conservative threshold to avoid accidental category hijacking.
+  if (bestRow && bestScore >= 72) return bestRow;
 
   return null;
 }
