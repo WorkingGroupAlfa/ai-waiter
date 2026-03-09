@@ -11,36 +11,16 @@ function asText(v) {
   return String(v ?? '').trim();
 }
 
-function hasCyrillic(text) {
-  return /[\u0400-\u04FF]/.test(String(text || ''));
-}
-
-function hasLatin(text) {
-  return /[A-Za-z]/.test(String(text || ''));
-}
-
-function looksLikeProtectedBrandName(text) {
-  const s = asText(text);
-  if (!s) return false;
-  if (!hasLatin(s) || hasCyrillic(s)) return false;
-  if (s.length < 2) return false;
-
-  // Typical alcohol/cocktail/brand patterns.
-  if (/[’']/.test(s)) return true;
-  if (/\b[A-Z]{2,}\b/.test(s)) return true;
-  if (/\b[A-Z][a-z]+\s+[A-Za-z0-9][A-Za-z0-9'’.-]+/.test(s)) return true;
-  if (/\b[A-Za-z]+[-/][A-Za-z0-9]+\b/.test(s)) return true;
-  if (/\b\d+[A-Za-z]*\b/.test(s)) return true;
-
-  return false;
+function isDrinkItem(item) {
+  const category = asText(item?.category || item?.base_category || item?.baseCategory).toLowerCase();
+  return category === 'drink';
 }
 
 function shouldProtectItemName(item) {
   if (!item || typeof item !== 'object') return false;
-  if (item.protect_name_from_translation === true) return true;
-  if (item.protectNameFromTranslation === true) return true;
-  const n = asText(item.raw_name || item.name || item.display_name || item.code || item.item_code);
-  return looksLikeProtectedBrandName(n);
+  const hasProtectFlag =
+    item.protect_name_from_translation === true || item.protectNameFromTranslation === true;
+  return hasProtectFlag && isDrinkItem(item);
 }
 
 const translationCache = new Map();
@@ -200,3 +180,4 @@ export async function localizeUiPayloadBatch({
 
   return patchDisplayNames(localized);
 }
+
