@@ -398,6 +398,319 @@
   }
   }
 
+  function formatPrice(value) {
+    if (value == null) return "";
+    const num = typeof value === "number" ? value : parseFloat(value);
+    if (Number.isNaN(num)) return "";
+    return num.toFixed(2);
+  }
+
+  function createOrderItemCard(item) {
+    const card = document.createElement("div");
+    card.className = "aiw-order-item";
+    card.dataset.orderItemId = item.id || "";
+    card.dataset.itemCode = item.code || "";
+    card.dataset.menuItemId = item.menuItemId || "";
+
+    const imgWrap = document.createElement("div");
+    imgWrap.className = "aiw-order-item-image";
+
+    const imgUrl = pickImageUrl(item);
+    if (imgUrl) {
+      const img = document.createElement("img");
+      img.src = imgUrl;
+      img.alt = item.name || item.code || "";
+      imgWrap.appendChild(img);
+    }
+
+    const main = document.createElement("div");
+    main.className = "aiw-order-item-main";
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "aiw-order-item-name";
+    nameEl.textContent = item.name || item.code || "Без назви";
+
+    const metaEl = document.createElement("div");
+    metaEl.className = "aiw-order-item-meta";
+    const qty = item.quantity != null ? item.quantity : 1;
+    const priceStr = formatPrice(item.unitPrice);
+    metaEl.textContent = priceStr ? `${qty} × ${priceStr}` : `${qty} ×`;
+
+    main.appendChild(nameEl);
+    main.appendChild(metaEl);
+
+    card.appendChild(imgWrap);
+    card.appendChild(main);
+
+    return card;
+  }
+
+  function renderOrderDraft(orderDraft) {
+    if (
+      !orderDraft ||
+      !Array.isArray(orderDraft.items) ||
+      orderDraft.items.length === 0
+    ) {
+      return null;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "aiw-order-draft";
+    wrapper.dataset.orderId = orderDraft.id;
+    wrapper._orderDraft = orderDraft;
+
+    const list = document.createElement("div");
+    list.className = "aiw-order-items";
+
+    orderDraft.items.forEach((item) => {
+      list.appendChild(createOrderItemCard(item));
+    });
+
+    wrapper.appendChild(list);
+
+    const submitBtn = document.createElement("button");
+    submitBtn.className = "aiw-order-submit";
+    submitBtn.innerHTML =
+      '<span class="aiw-draft-submit-icon" aria-hidden="true"></span>';
+    submitBtn.title = "Перейти в кошик (підтвердження та відправка - там)";
+
+    submitBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openCartOverlay === "function") openCartOverlay();
+      try {
+        if (miniCartEl) {
+          miniCartEl.classList.add("aiw-pulse");
+          setTimeout(
+            () => miniCartEl && miniCartEl.classList.remove("aiw-pulse"),
+            650,
+          );
+        }
+      } catch (_) {}
+    });
+
+    wrapper.appendChild(submitBtn);
+
+    return wrapper;
+  }
+
+  function appendBotMessageWithOrder(replyText, orderDraft) {
+    if (!messagesEl) return;
+
+    const container = document.createElement("div");
+    container.className = "aiw-msg aiw-msg-bot aiw-msg-wide";
+
+    const textEl = document.createElement("div");
+    textEl.className = "aiw-msg-text";
+    textEl.textContent = replyText;
+    container.appendChild(textEl);
+
+    const draftEl = renderOrderDraft(orderDraft);
+    if (draftEl) {
+      container.appendChild(draftEl);
+      lastOrderDraft = orderDraft;
+      lastOrderDraftEl = draftEl;
+      renderMiniCart(orderDraft);
+      if (typeof renderCartOverlay === "function") {
+        renderCartOverlay(orderDraft);
+      }
+    }
+
+    messagesEl.appendChild(container);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function createRecommendationItemCard(item) {
+    const card = document.createElement("div");
+    card.className = "aiw-order-item aiw-reco-item";
+
+    const imgWrap = document.createElement("div");
+    imgWrap.className = "aiw-order-item-image";
+
+    const recoImg = pickImageUrl(item);
+    if (recoImg) {
+      const img = document.createElement("img");
+      img.src = recoImg;
+      img.alt = item.name || item.code || "";
+      imgWrap.appendChild(img);
+    }
+
+    const main = document.createElement("div");
+    main.className = "aiw-order-item-main";
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "aiw-order-item-name";
+    nameEl.textContent = item.name || item.code || "Без назви";
+
+    const metaEl = document.createElement("div");
+    metaEl.className = "aiw-order-item-meta";
+    const priceStr = formatPrice(item.unitPrice);
+    metaEl.textContent = priceStr || "";
+
+    main.appendChild(nameEl);
+    main.appendChild(metaEl);
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "aiw-upsell-add-btn aiw-reco-add-btn";
+    addBtn.textContent = "+";
+
+    addBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const code = item.code || item.item_code;
+      if (!code) return;
+
+      const updatedDraft = await callOrderUiUpdate(null, {
+        type: "set",
+        item_code: code,
+        quantity: 1,
+      });
+
+      if (updatedDraft) {
+        lastOrderDraft = updatedDraft;
+
+        if (lastOrderDraftEl && lastOrderDraftEl.isConnected) {
+          rerenderOrderDraftElement(lastOrderDraftEl, updatedDraft);
+        } else {
+          const nextDraft =
+            updatedDraft &&
+            Array.isArray(updatedDraft.items) &&
+            updatedDraft.items.length
+              ? updatedDraft
+              : null;
+          renderMiniCart(nextDraft);
+          if (typeof renderCartOverlay === "function") {
+            renderCartOverlay(nextDraft);
+          }
+        }
+
+        if (typeof openCartOverlay === "function") openCartOverlay();
+
+        try {
+          if (miniCartEl) {
+            miniCartEl.classList.add("aiw-pulse");
+            setTimeout(
+              () => miniCartEl && miniCartEl.classList.remove("aiw-pulse"),
+              650,
+            );
+          }
+        } catch (_) {}
+      }
+    });
+
+    card.appendChild(imgWrap);
+    card.appendChild(main);
+    card.appendChild(addBtn);
+
+    return card;
+  }
+
+  function appendBotMessageWithRecommendations(replyText, recommendations) {
+    if (!messagesEl) return;
+    rememberImagesFromList(recommendations || []);
+
+    const container = document.createElement("div");
+    container.className = "aiw-msg aiw-msg-bot aiw-msg-wide aiw-msg-reco";
+
+    const textEl = document.createElement("div");
+    textEl.className = "aiw-msg-text";
+    textEl.textContent = replyText;
+    container.appendChild(textEl);
+
+    const wrap = document.createElement("div");
+    wrap.className = "aiw-order-draft aiw-reco-wrap";
+
+    const list = document.createElement("div");
+    list.className = "aiw-order-items aiw-reco-items";
+
+    (recommendations || []).forEach((it) => {
+      list.appendChild(createRecommendationItemCard(it));
+    });
+
+    wrap.appendChild(list);
+    container.appendChild(wrap);
+
+    messagesEl.appendChild(container);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function appendUpsellMessage(upsell) {
+    if (
+      !messagesEl ||
+      !upsell ||
+      !Array.isArray(upsell.items) ||
+      upsell.items.length === 0
+    ) {
+      return;
+    }
+
+    const container = document.createElement("div");
+    container.className = "aiw-msg aiw-msg-bot aiw-msg-upsell";
+
+    const textEl = document.createElement("div");
+    textEl.className = "aiw-upsell-text";
+    textEl.textContent =
+      upsell.text || "Також можемо порекомендувати ось ці страви:";
+    container.appendChild(textEl);
+
+    const itemsWrap = document.createElement("div");
+    itemsWrap.className = "aiw-upsell-items";
+    rememberImagesFromList(upsell.items || []);
+
+    upsell.items.forEach((item) => {
+      const card = document.createElement("div");
+      card.className = "aiw-upsell-item";
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "aiw-order-item-name";
+      nameEl.textContent = item.name || item.code || "Без назви";
+
+      const metaEl = document.createElement("div");
+      metaEl.className = "aiw-order-item-meta";
+      const priceStr = formatPrice(item.unitPrice);
+      metaEl.textContent = priceStr || "";
+
+      const trustEl = document.createElement("div");
+      trustEl.className = "aiw-upsell-trust";
+      trustEl.textContent =
+        item.trust_text || item.trustText || item.text || "";
+
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "aiw-upsell-add-btn";
+      addBtn.textContent = "+";
+
+      addBtn.addEventListener("click", async () => {
+        if (!lastOrderDraft || !lastOrderDraftEl) {
+          appendSystemMessage("Спочатку зробіть основне замовлення.");
+          return;
+        }
+
+        const updatedDraft = await callOrderUiUpdate(lastOrderDraft.id, {
+          type: "set",
+          item_code: item.code,
+          quantity: 1,
+        });
+
+        if (updatedDraft) {
+          rerenderOrderDraftElement(lastOrderDraftEl, updatedDraft);
+        }
+      });
+
+      card.appendChild(nameEl);
+      card.appendChild(metaEl);
+      if (trustEl.textContent) card.appendChild(trustEl);
+      card.appendChild(addBtn);
+      itemsWrap.appendChild(card);
+    });
+
+    container.appendChild(itemsWrap);
+    messagesEl.appendChild(container);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
   // ---------- Session init only via QR ----------
 
   async function initSession() {
