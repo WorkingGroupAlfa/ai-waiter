@@ -20,6 +20,166 @@ function normAliases(v) {
   return [];
 }
 
+function normalizeCategoryText(v) {
+  return String(v || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replaceAll('ё', 'е')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFC')
+    .replace(/[’'`´]+/g, '')
+    .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stemCategoryToken(token) {
+  let t = normalizeCategoryText(token);
+  if (!t) return '';
+
+  const cyrSuffixes = [
+    'иями',
+    'ями',
+    'ами',
+    'ого',
+    'ему',
+    'ому',
+    'ими',
+    'ий',
+    'ый',
+    'ой',
+    'ая',
+    'яя',
+    'ое',
+    'ее',
+    'ые',
+    'ие',
+    'ов',
+    'ев',
+    'ей',
+    'ам',
+    'ям',
+    'ах',
+    'ях',
+    'а',
+    'я',
+    'у',
+    'ю',
+    'ы',
+    'и',
+    'е',
+    'о',
+  ];
+  const latinSuffixes = ['ingly', 'edly', 'ing', 'ed', 'es', 's'];
+  const hasCyr = /[\u0400-\u04ff]/.test(t);
+  const hasLatin = /[a-z]/.test(t);
+  const suffixes = hasCyr ? cyrSuffixes : hasLatin ? latinSuffixes : [];
+
+  for (const suffix of suffixes) {
+    if (t.length > suffix.length + 2 && t.endsWith(suffix)) {
+      t = t.slice(0, -suffix.length);
+      break;
+    }
+  }
+  return t;
+}
+
+function tokenizeCategoryText(text, genericTokens = new Set()) {
+  const normalized = normalizeCategoryText(text);
+  if (!normalized) return { normalized, tokens: [], stems: [] };
+
+  const tokens = normalized
+    .split(' ')
+    .filter(Boolean)
+    .filter((t) => t.length >= 3 && !genericTokens.has(t));
+  const stems = tokens.map((t) => stemCategoryToken(t)).filter(Boolean);
+
+  return {
+    normalized,
+    tokens: Array.from(new Set(tokens)),
+    stems: Array.from(new Set(stems)),
+  };
+}
+
+function levenshteinDistance(a, b) {
+  const s = String(a || '');
+  const t = String(b || '');
+  const n = s.length;
+  const m = t.length;
+  if (n === 0) return m;
+  if (m === 0) return n;
+
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = 0; i <= n; i += 1) dp[i][0] = i;
+  for (let j = 0; j <= m; j += 1) dp[0][j] = j;
+
+  for (let i = 1; i <= n; i += 1) {
+    for (let j = 1; j <= m; j += 1) {
+      const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return dp[n][m];
+}
+
+function similarityRatio(a, b) {
+  const x = normalizeCategoryText(a);
+  const y = normalizeCategoryText(b);
+  if (!x || !y) return 0;
+  if (x === y) return 1;
+  const dist = levenshteinDistance(x, y);
+  const maxLen = Math.max(x.length, y.length) || 1;
+  return 1 - dist / maxLen;
+}
+
+function addKnownAliases(terms, row) {
+  const title = normalizeCategoryText(row?.name_ua || row?.name_en || row?.slug || '');
+  if (!title) return;
+
+  if (title.includes('рол')) {
+    terms.push('роли', 'ролли', 'роллы', 'roll', 'rolls');
+  }
+  if (title.includes('суші') || title.includes('суши')) {
+    terms.push('суши', 'sushi');
+  }
+  if (title.includes('сашим')) {
+    terms.push('сашими', 'sashimi');
+  }
+  if (title.includes('тема')) {
+    terms.push('темаки', 'temaki', 'hand roll', 'handroll');
+  }
+  if (title.includes('гункан')) {
+    terms.push('гункан', 'gunkan');
+  }
+  if (title.includes('суп')) {
+    terms.push('суп', 'супы', 'soups', 'soup');
+  }
+  if (title.includes('горяч') || title.includes('hot')) {
+    terms.push('горячее', 'горячие', 'hot dish', 'hot dishes');
+  }
+}
+
+function getCategoryTerms(row) {
+  const out = [];
+  out.push(row.slug, row.name_ua, row.name_en);
+  if (Array.isArray(row.aliases)) out.push(...row.aliases);
+  addKnownAliases(out, row);
+
+  return Array.from(
+    new Set(
+      out
+        .map((x) => normalizeCategoryText(x))
+        .filter(Boolean)
+    )
+  );
+}
+
 export async function listCustomCategories(restaurantId, { onlyActive = false } = {}) {
   const params = [restaurantId];
   let where = 'WHERE restaurant_id = $1';
@@ -214,6 +374,103 @@ export async function getMenuItemsByCustomCategory({
   return rows;
 }
 
+export function matchCustomCategoryFromRows(rows = [], mentionText = '') {
+  const mention = normText(mentionText)?.toLowerCase();
+  if (!mention) return null;
+
+  const GENERIC_TOKENS = new Set([
+    'dish',
+    'dishes',
+    'food',
+    'menu',
+    'item',
+    'items',
+    'have',
+    'show',
+    'want',
+    'what',
+    'please',
+    'with',
+    'from',
+    'about',
+    'something',
+    'category',
+    'блюдо',
+    'блюда',
+    'страва',
+    'страви',
+    'меню',
+    'є',
+    'есть',
+    'хочу',
+    'покажи',
+    'что',
+    'у',
+    'вас',
+  ]);
+  const mentionParts = tokenizeCategoryText(mention, GENERIC_TOKENS);
+  const mentionNorm = mentionParts.normalized;
+  const mentionTokens = new Set(mentionParts.tokens);
+  const mentionStems = new Set(mentionParts.stems);
+
+  let bestRow = null;
+  let bestScore = 0;
+
+  for (const row of rows) {
+    const terms = getCategoryTerms(row);
+    let rowScore = 0;
+
+    for (const t of terms) {
+      if (!t) continue;
+
+      if (mentionNorm === t) {
+        rowScore = Math.max(rowScore, 100);
+        continue;
+      }
+
+      if (mentionNorm.includes(t) && t.length >= 3) {
+        rowScore = Math.max(rowScore, Math.min(95, 50 + t.length));
+      }
+      if (t.includes(mentionNorm) && mentionNorm.length >= 4) {
+        rowScore = Math.max(rowScore, Math.min(90, 45 + mentionNorm.length));
+      }
+
+      const termParts = tokenizeCategoryText(t, GENERIC_TOKENS);
+      let tokenOverlap = 0;
+
+      for (const w of termParts.tokens) {
+        if (mentionTokens.has(w)) tokenOverlap += 1;
+      }
+      for (const w of termParts.stems) {
+        if (mentionStems.has(w)) tokenOverlap += 1;
+      }
+      if (tokenOverlap > 0) {
+        rowScore = Math.max(rowScore, 60 + tokenOverlap * 10);
+      }
+
+      for (const mt of mentionStems) {
+        if (mt.length < 4) continue;
+        for (const tw of termParts.stems) {
+          if (tw.length < 4) continue;
+          const sim = similarityRatio(mt, tw);
+          if (sim >= 0.82) {
+            rowScore = Math.max(rowScore, 74);
+          }
+        }
+      }
+    }
+
+    if (rowScore > bestScore) {
+      bestScore = rowScore;
+      bestRow = row;
+    }
+  }
+
+  if (bestRow && bestScore >= 72) return bestRow;
+
+  return null;
+}
+
 export async function findCustomCategoryByMention(restaurantId, mentionText = '') {
   const mention = normText(mentionText)?.toLowerCase();
   if (!mention) return null;
@@ -237,179 +494,5 @@ export async function findCustomCategoryByMention(restaurantId, mentionText = ''
     [restaurantId]
   );
 
-  const normalize = (v) =>
-    String(v || '')
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
-      .replace(/[_-]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  const mentionNorm = normalize(mention);
-  const GENERIC_TOKENS = new Set([
-    'dish',
-    'dishes',
-    'food',
-    'menu',
-    'item',
-    'items',
-    'have',
-    'show',
-    'want',
-    'what',
-    '\u0431\u043b\u044e\u0434\u043e',
-    '\u0431\u043b\u044e\u0434\u0430',
-    '\u0441\u0442\u0440\u0430\u0432\u0430',
-    '\u0441\u0442\u0440\u0430\u0432\u0438',
-    '\u043c\u0435\u043d\u044e',
-    '\u0454',
-    '\u0435\u0441\u0442\u044c',
-    '\u0445\u043e\u0447\u0443',
-    '\u043f\u043e\u043a\u0430\u0436\u0438',
-    '\u0449\u043e',
-    '\u0443',
-    '\u0432\u0430\u0441',
-  ]);
-  const mentionTokens = new Set(
-    mentionNorm
-      .split(' ')
-      .filter(Boolean)
-      .filter((t) => t.length >= 3 && !GENERIC_TOKENS.has(t))
-  );
-
-  function levenshteinDistance(a, b) {
-    const s = String(a || '');
-    const t = String(b || '');
-    const n = s.length;
-    const m = t.length;
-    if (n === 0) return m;
-    if (m === 0) return n;
-
-    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-    for (let i = 0; i <= n; i += 1) dp[i][0] = i;
-    for (let j = 0; j <= m; j += 1) dp[0][j] = j;
-
-    for (let i = 1; i <= n; i += 1) {
-      for (let j = 1; j <= m; j += 1) {
-        const cost = s[i - 1] === t[j - 1] ? 0 : 1;
-        dp[i][j] = Math.min(
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + cost
-        );
-      }
-    }
-    return dp[n][m];
-  }
-
-  function similarityRatio(a, b) {
-    const x = normalize(a);
-    const y = normalize(b);
-    if (!x || !y) return 0;
-    if (x === y) return 1;
-    const dist = levenshteinDistance(x, y);
-    const maxLen = Math.max(x.length, y.length) || 1;
-    return 1 - dist / maxLen;
-  }
-
-  const addKnownAliases = (terms, row) => {
-    const title = normalize(row?.name_ua || row?.name_en || row?.slug || '');
-    if (!title) return;
-
-    if (title.includes('рол')) {
-      terms.push('ролы', 'ролли', 'роллы', 'roll', 'rolls');
-    }
-    if (title.includes('суші') || title.includes('суши')) {
-      terms.push('суши', 'sushi');
-    }
-    if (title.includes('сашим')) {
-      terms.push('сашими', 'sashimi');
-    }
-    if (title.includes('тема')) {
-      terms.push('темаки', 'temaki', 'hand roll', 'handroll');
-    }
-    if (title.includes('гункан')) {
-      terms.push('гункан', 'gunkan');
-    }
-    if (title.includes('суп')) {
-      terms.push('суп', 'супы', 'soups', 'soup');
-    }
-    if (title.includes('гаряч') || title.includes('горяч') || title.includes('hot')) {
-      terms.push('горячее', 'горячие', 'hot dish', 'hot dishes');
-    }
-  };
-
-  const getTerms = (row) => {
-    const out = [];
-    out.push(row.slug, row.name_ua, row.name_en);
-    if (Array.isArray(row.aliases)) out.push(...row.aliases);
-    addKnownAliases(out, row);
-
-    return Array.from(
-      new Set(
-        out
-          .map((x) => normalize(x))
-          .filter(Boolean)
-      )
-    );
-  };
-
-  let bestRow = null;
-  let bestScore = 0;
-
-  for (const row of rows) {
-    const terms = getTerms(row);
-    let rowScore = 0;
-
-    for (const t of terms) {
-      if (!t) continue;
-
-      if (mentionNorm === t) {
-        rowScore = Math.max(rowScore, 100);
-        continue;
-      }
-
-      if (mentionNorm.includes(t) && t.length >= 3) {
-        rowScore = Math.max(rowScore, Math.min(95, 50 + t.length));
-      }
-      if (t.includes(mentionNorm) && mentionNorm.length >= 4) {
-        rowScore = Math.max(rowScore, Math.min(90, 45 + mentionNorm.length));
-      }
-
-      const termTokens = t
-        .split(' ')
-        .map((x) => x.trim())
-        .filter((x) => x.length >= 3 && !GENERIC_TOKENS.has(x));
-
-      let tokenOverlap = 0;
-      for (const w of termTokens) {
-        if (mentionTokens.has(w)) tokenOverlap += 1;
-      }
-      if (tokenOverlap > 0) {
-        rowScore = Math.max(rowScore, 60 + tokenOverlap * 12);
-      }
-
-      // Typo/translit tolerance for short category names.
-      for (const mt of mentionTokens) {
-        if (mt.length < 4) continue;
-        for (const tw of termTokens) {
-          if (tw.length < 4) continue;
-          const sim = similarityRatio(mt, tw);
-          if (sim >= 0.86) {
-            rowScore = Math.max(rowScore, 72);
-          }
-        }
-      }
-    }
-
-    if (rowScore > bestScore) {
-      bestScore = rowScore;
-      bestRow = row;
-    }
-  }
-
-  // Conservative threshold to avoid accidental category hijacking.
-  if (bestRow && bestScore >= 72) return bestRow;
-
-  return null;
+  return matchCustomCategoryFromRows(rows, mention);
 }

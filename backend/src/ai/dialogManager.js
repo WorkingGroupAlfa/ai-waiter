@@ -945,6 +945,8 @@ return {
       restaurantId: session?.restaurant_id,
       text: normalizedText,
       nlu: { ...nlu, intent: resolvedIntent },
+      queryUnderstanding,
+      locale: language,
     });
 
     if (requestedCategory) {
@@ -2380,7 +2382,7 @@ case 'info': {
 case 'unknown':
 default: {
   const baseTextEn =
-    'I didnвЂ™t fully understand your request yet. Could you phrase it more simply? For example: вЂњI want a lemonadeвЂќ, вЂњRecommend a dessertвЂќ or вЂњIвЂ™m allergic to nutsвЂќ.';
+    'I didnt fully understand your request yet. Could you phrase it more simply? For example: I want a lemonade, Recommend a dessert or Im allergic to nuts.';
 
   const reply = await respondInLanguage({
     baseTextEn,

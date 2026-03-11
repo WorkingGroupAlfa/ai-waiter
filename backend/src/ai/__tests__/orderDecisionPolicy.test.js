@@ -139,3 +139,34 @@ test('exact direct mention without explicit verb still uses add_exact', () => {
   assert.equal(decision.mode, 'add_exact');
   assert.equal(decision.reason, 'exact_match_direct_mention');
 });
+
+test('category request does not auto-add even in english', () => {
+  const understanding = buildQueryUnderstanding('do you have tequila', { localeHint: 'en' });
+  const decision = decideOrderMutationPolicy({
+    resolvedIntent: 'order',
+    text: 'do you have tequila',
+    nluItems: [],
+    clarificationNeeded: false,
+    queryUnderstanding: understanding,
+  });
+  assert.equal(decision.mode, 'suggest_list');
+});
+
+test('exact tequila item still uses add_exact and is not downgraded to category flow', () => {
+  const understanding = buildQueryUnderstanding('Tequila Sunrise', { localeHint: 'en' });
+  const decision = decideOrderMutationPolicy({
+    resolvedIntent: 'order',
+    text: 'Tequila Sunrise',
+    nluItems: [
+      makeItem({
+        rawText: 'Tequila Sunrise',
+        menu_item_id: 'm77',
+        matchConfidence: 0.96,
+        matchSource: 'name_exact',
+      }),
+    ],
+    clarificationNeeded: false,
+    queryUnderstanding: understanding,
+  });
+  assert.equal(decision.mode, 'add_exact');
+});

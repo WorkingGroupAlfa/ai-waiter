@@ -12,6 +12,7 @@ import {
 } from '../models/customCategoryModel.js';
 import { suggestMenuByText } from '../ai/semanticMatcher.js';
 import { translateToEnglish } from '../ai/translationService.js';
+import { buildQueryUnderstanding } from '../ai/queryUnderstanding.js';
 import { query } from '../db.js';
 
 // --- Preference keywords → tags (admin-managed standard tags) ---
@@ -115,6 +116,73 @@ function extractSearchTerms(text) {
     .forEach((t) => out.add(t));
 
   return Array.from(out);
+}
+
+function isAvailabilityOrDiscoveryQuery(text) {
+  const t = normalizeLookupText(text);
+  if (!t) return false;
+
+  return (
+    /\b(do you have|what do you have|show|recommend|suggest|want|can i get|can i have)\b/i.test(t) ||
+    /\b(есть|что у вас есть|покажи|хочу|можно|що є|що у вас є)\b/i.test(t)
+  );
+}
+
+async function tryCategoryFirstSuggestions({
+  restaurantId,
+  queryText,
+  translatedQuery,
+  locale,
+  limit,
+} = {}) {
+  const understanding = buildQueryUnderstanding(queryText, { localeHint: locale || null });
+  const normalizedRaw = normalizeLookupText(queryText);
+  const normalizedTranslated = normalizeLookupText(translatedQuery);
+  const signalText = normalizedTranslated || normalizedRaw;
+  const meaningfulTokens = signalText
+    .split(' ')
+    .filter((t) => t.length >= 3 && !QUERY_STOPWORDS.has(t));
+  const shouldPreferCategory =
+    meaningfulTokens.length <= 2 || isAvailabilityOrDiscoveryQuery(queryText) || isAvailabilityOrDiscoveryQuery(translatedQuery);
+
+  if (!shouldPreferCategory) {
+    return [];
+  }
+
+  const category =
+    (normalizedRaw && (await findCustomCategoryByMention(restaurantId, normalizedRaw))) ||
+    (normalizedTranslated && normalizedTranslated !== normalizedRaw
+      ? await findCustomCategoryByMention(restaurantId, normalizedTranslated)
+      : null);
+
+  if (!category?.id) {
+    return [];
+  }
+
+  const categoryRows = await getMenuItemsByCustomCategory({
+    restaurantId,
+    categoryId: category.id,
+    limit,
+  });
+
+  if (!Array.isArray(categoryRows) || categoryRows.length === 0) {
+    return [];
+  }
+
+  const concepts = Array.isArray(understanding?.concepts) ? understanding.concepts : [];
+  const conceptBonus = concepts.length > 0;
+
+  return categoryRows
+    .map((r) => ({
+      item_code: r.item_code,
+      name: r.name || r.item_code,
+      price: r.price ?? null,
+      image_url: r.image_url || null,
+      protect_name_from_translation: Boolean(r.protect_name_from_translation),
+      _priority: conceptBonus ? 1 : 0,
+    }))
+    .sort((a, b) => Number(b._priority || 0) - Number(a._priority || 0))
+    .map(({ _priority, ...row }) => row);
 }
 
 async function pickByIngredientsOrName(restaurantId, queryText, limit = 6) {
@@ -235,6 +303,17 @@ export async function suggestMenuItems(restaurantId, { query, locale, limit = 6 
     translatedQuery = String(await translateToEnglish(trimmed, locale) || '').trim();
   } catch (_) {
     translatedQuery = '';
+  }
+
+  const categoryFirstRows = await tryCategoryFirstSuggestions({
+    restaurantId,
+    queryText: trimmed,
+    translatedQuery,
+    locale,
+    limit: safeLimit,
+  });
+  if (categoryFirstRows.length) {
+    return categoryFirstRows;
   }
 
   const mapMatchesToPublicRows = async (matches) => {
