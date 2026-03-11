@@ -160,6 +160,93 @@
   let lastOrderDraftEl = null;
   const imageUrlByCode = new Map();
 
+  function normalizeImageUrl(raw) {
+    const v = String(raw || "").trim();
+    if (!v) return "";
+    if (/^https?:\/\//i.test(v)) return v;
+    if (/^data:/i.test(v) || /^blob:/i.test(v)) return v;
+    if (v.startsWith("/")) return `${ASSETS_BASE}${v}`;
+    if (v.startsWith("img/")) return `${ASSETS_BASE}/${v}`;
+    if (/^[\w.-]+\.(webp|png|jpe?g|gif|svg)$/i.test(v)) {
+      return `${ASSETS_BASE}/img/${v}`;
+    }
+    return `${ASSETS_BASE}/${v}`;
+  }
+
+  function getItemCode(obj) {
+    if (!obj) return "";
+    return String(obj.code || obj.item_code || "").trim();
+  }
+
+  function pickImageUrl(obj) {
+    if (!obj) return "";
+    const raw =
+      obj.imageUrl ||
+      obj.image_url ||
+      obj.photo_url ||
+      obj.photoUrl ||
+      obj.image ||
+      obj.img ||
+      "";
+
+    const normalized = normalizeImageUrl(raw);
+    if (normalized) return normalized;
+
+    const byCode = imageUrlByCode.get(getItemCode(obj).toUpperCase());
+    return byCode || "";
+  }
+
+  function rememberImagesFromList(list) {
+    if (!Array.isArray(list)) return;
+    for (const it of list) {
+      const code = getItemCode(it);
+      const url = pickImageUrl(it);
+      if (code && url) imageUrlByCode.set(code.toUpperCase(), url);
+    }
+  }
+
+  function normalizeOrderDraftImages(draft) {
+    if (!draft || !Array.isArray(draft.items)) return draft;
+    draft.items = draft.items.map((it) => {
+      const url = pickImageUrl(it);
+      const code = getItemCode(it);
+      if (url && code) imageUrlByCode.set(code.toUpperCase(), url);
+      return url && !it.imageUrl ? { ...it, imageUrl: url } : it;
+    });
+    return draft;
+  }
+
+  // Preserve imageUrl when backend returns order drafts without media fields.
+  function mergeOrderDraftPreservingMedia(prevDraft, nextDraft) {
+    if (!nextDraft || !Array.isArray(nextDraft.items)) return nextDraft;
+    if (!prevDraft || !Array.isArray(prevDraft.items)) return nextDraft;
+
+    const prevByKey = new Map();
+    for (const it of prevDraft.items) {
+      const key = String(
+        it?.id || it?.order_item_id || it?.code || it?.item_code || "",
+      );
+      if (!key) continue;
+      prevByKey.set(key, it);
+    }
+
+    const mergedItems = nextDraft.items.map((it) => {
+      const key = String(
+        it?.id || it?.order_item_id || it?.code || it?.item_code || "",
+      );
+      const prev = key ? prevByKey.get(key) : null;
+      const nextUrl = pickImageUrl(it);
+      const prevUrl = prev ? pickImageUrl(prev) : "";
+
+      if (!nextUrl && prevUrl) {
+        return { ...it, imageUrl: prevUrl };
+      }
+      return it;
+    });
+
+    return { ...nextDraft, items: mergedItems };
+  }
+
   // --- Voice state ---
   let mediaRecorder = null;
   let audioChunks = [];
