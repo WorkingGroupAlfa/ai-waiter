@@ -1,8 +1,8 @@
-// assistant-widget.js
+﻿// assistant-widget.js
 (function () {
   const API_BASE = (window.AIW_CONFIG && window.AIW_CONFIG.API_BASE_URL)
   ? window.AIW_CONFIG.API_BASE_URL
-  : "https://ai-waiter-0b4e.onrender.com"; // fallback для локалки
+  : "https://ai-waiter-0b4e.onrender.com"; // fallback РґР»СЏ Р»РѕРєР°Р»РєРё
   const ASSETS_BASE = (window.AIW_CONFIG && window.AIW_CONFIG.ASSETS_BASE_URL)
     ? String(window.AIW_CONFIG.ASSETS_BASE_URL).replace(/\/$/, "")
     : window.location.origin;
@@ -19,7 +19,7 @@
 
   // Fallback EN texts (will be replaced by backend /chat/ui-texts based on browser language)
   let UI_TEXTS = {
-    input_placeholder: "Message…",
+    input_placeholder: "Message...¦",
     mini_subtotal: "Subtotal",
     cart_title: "Cart",
     cart_close_aria: "Close",
@@ -65,7 +65,7 @@
         localStorage.setItem(lsKey, JSON.stringify(texts));
       }
     } catch (e) {
-      // ignore — fallback to EN defaults
+      // ignore - fallback to EN defaults
     }
   }
 
@@ -134,7 +134,7 @@
         (data && typeof data.text === "string" && data.text.trim()) ||
         fallbackEn;
 
-      // Можно использовать тот же рендерер, что и Welcome 1 — чтобы стиль был одинаковый
+      // РњРѕР¶РЅРѕ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ С‚РѕС‚ Р¶Рµ СЂРµРЅРґРµСЂРµСЂ, С‡С‚Рѕ Рё Welcome 1 вЂ” С‡С‚РѕР±С‹ СЃС‚РёР»СЊ Р±С‹Р» РѕРґРёРЅР°РєРѕРІС‹Р№
       appendWelcomeMessage(text);
     } catch (e) {
       console.warn("[greeting] failed:", e);
@@ -150,7 +150,7 @@
   }
 
   function getLocalDaypart() {
-    const h = new Date().getHours(); // локальное время устройства
+    const h = new Date().getHours(); // Р»РѕРєР°Р»СЊРЅРѕРµ РІСЂРµРјСЏ СѓСЃС‚СЂРѕР№СЃС‚РІР°
     if (h >= 5 && h < 12) return "morning";
     if (h >= 12 && h < 18) return "day";
     return "evening";
@@ -165,20 +165,20 @@
   let audioChunks = [];
   let isRecording = false;
 
-  // Был ли последняя фраза отправлена из голоса (для TTS)
+  // Р‘С‹Р» Р»Рё РїРѕСЃР»РµРґРЅСЏСЏ С„СЂР°Р·Р° РѕС‚РїСЂР°РІР»РµРЅР° РёР· РіРѕР»РѕСЃР° (РґР»СЏ TTS)
   let lastRequestFromVoice = false;
 
-  // --- WebSocket для стриминга голоса ---
+  // --- WebSocket РґР»СЏ СЃС‚СЂРёРјРёРЅРіР° РіРѕР»РѕСЃР° ---
   let voiceWs = null;
   let voiceWsReady = false;
   let voiceWsOnTranscript = null;
 
-  // ---------- Парсим токен из URL (QR-режим) ----------
+  // ---------- РџР°СЂСЃРёРј С‚РѕРєРµРЅ РёР· URL (QR-СЂРµР¶РёРј) ----------
 
   function getQrTokenFromUrl() {
     try {
       const params = new URLSearchParams(window.location.search);
-      // поддерживаем и ?qr_token=..., и ?token=...
+      // РїРѕРґРґРµСЂР¶РёРІР°РµРј Рё ?qr_token=..., Рё ?token=...
       return params.get("qr_token") || params.get("token");
     } catch (e) {
       console.warn("Cannot parse URLSearchParams", e);
@@ -186,7 +186,7 @@
     }
   }
 
-  // ---------- UI: helper для сообщений ----------
+  // ---------- UI: helper РґР»СЏ СЃРѕРѕР±С‰РµРЅРёР№ ----------
 
   let messagesEl = null;
 
@@ -306,637 +306,12 @@
         }: ${formatPrice(subtotal)}`;
         totalEl.style.display = "block";
       } else {
-        totalEl.textContent = "";
         totalEl.style.display = "none";
       }
-    }
-
-    const track = miniCartEl.querySelector(".aiw-mini-cart-track");
-    if (!track) return;
-
-    track.innerHTML = "";
-
-    // empty state
-    if (!hasItems) {
-      const empty = document.createElement("div");
-      empty.className = "aiw-mini-cart-empty";
-      empty.textContent = UI_TEXTS.mini_cart_empty || "Cart is empty";
-      track.appendChild(empty);
-      return;
-    }
-
-    // thumbs only
-    const maxThumbs = 10;
-    orderDraft.items.slice(0, maxThumbs).forEach((it) => {
-      const thumb = document.createElement("button");
-      thumb.type = "button";
-      thumb.className = "aiw-mini-cart-thumb";
-      thumb.title = it.name || it.code || "";
-
-      const thumbUrl = pickImageUrl(it);
-      if (thumbUrl) {
-        const img = document.createElement("img");
-        img.src = thumbUrl;
-        img.alt = it.name || it.code || "";
-        thumb.appendChild(img);
-      } else {
-        const ph = document.createElement("div");
-        ph.className = "aiw-mini-cart-thumb-ph";
-        ph.textContent = (it.name || it.code || "•").slice(0, 1).toUpperCase();
-        thumb.appendChild(ph);
-      }
-
-      // cart-first: click opens cart overlay
-      thumb.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof openCartOverlay === "function") {
-          openCartOverlay();
-        }
-      });
-
-      track.appendChild(thumb);
-    });
-
-    // +N
-    if (orderDraft.items.length > maxThumbs) {
-      const more = document.createElement("div");
-      more.className = "aiw-mini-cart-more";
-      more.textContent = `+${orderDraft.items.length - maxThumbs}`;
-      track.appendChild(more);
-    }
+  }
   }
 
-  // ---------- UI: карточки заказов и апселов ----------
-
-  function formatPrice(value) {
-    if (value == null) return "";
-    const num = typeof value === "number" ? value : parseFloat(value);
-    if (Number.isNaN(num)) return "";
-    return num.toFixed(2); // валюту пока не указываем
-  }
-
-  function normalizeImageUrl(raw) {
-    const v = String(raw || "").trim();
-    if (!v) return "";
-    if (/^https?:\/\//i.test(v)) return v;
-    if (/^data:/i.test(v) || /^blob:/i.test(v)) return v;
-    if (v.startsWith("/")) return `${ASSETS_BASE}${v}`;
-    if (v.startsWith("img/")) return `${ASSETS_BASE}/${v}`;
-    if (/^[\w.-]+\.(webp|png|jpe?g|gif|svg)$/i.test(v)) {
-      return `${ASSETS_BASE}/img/${v}`;
-    }
-    return `${ASSETS_BASE}/${v}`;
-  }
-
-  function getItemCode(obj) {
-    if (!obj) return "";
-    return String(obj.code || obj.item_code || "").trim();
-  }
-
-  function pickImageUrl(obj) {
-    if (!obj) return "";
-    const raw =
-      obj.imageUrl ||
-      obj.image_url ||
-      obj.photo_url ||
-      obj.photoUrl ||
-      obj.image ||
-      obj.img ||
-      "";
-
-    const normalized = normalizeImageUrl(raw);
-    if (normalized) return normalized;
-
-    const byCode = imageUrlByCode.get(getItemCode(obj).toUpperCase());
-    return byCode || "";
-  }
-
-  function rememberImagesFromList(list) {
-    if (!Array.isArray(list)) return;
-    for (const it of list) {
-      const code = getItemCode(it);
-      const url = pickImageUrl(it);
-      if (code && url) imageUrlByCode.set(code.toUpperCase(), url);
-    }
-  }
-
-  function normalizeOrderDraftImages(draft) {
-    if (!draft || !Array.isArray(draft.items)) return draft;
-    draft.items = draft.items.map((it) => {
-      const url = pickImageUrl(it);
-      const code = getItemCode(it);
-      if (url && code) imageUrlByCode.set(code.toUpperCase(), url);
-      // важно: НЕ затираем если уже есть imageUrl
-      return url && !it.imageUrl ? { ...it, imageUrl: url } : it;
-    });
-    return draft;
-  }
-
-    // Preserve media fields (imageUrl) when backend returns a draft without images
-  // (common for /order/ui-update). This prevents images from disappearing after +/- in cart.
-  function mergeOrderDraftPreservingMedia(prevDraft, nextDraft) {
-    if (!nextDraft || !Array.isArray(nextDraft.items)) return nextDraft;
-    if (!prevDraft || !Array.isArray(prevDraft.items)) return nextDraft;
-
-    const prevByKey = new Map();
-    for (const it of prevDraft.items) {
-      const key = String(
-        it?.id || it?.order_item_id || it?.code || it?.item_code || "",
-      );
-      if (!key) continue;
-      prevByKey.set(key, it);
-    }
-
-    const mergedItems = nextDraft.items.map((it) => {
-      const key = String(
-        it?.id || it?.order_item_id || it?.code || it?.item_code || "",
-      );
-      const prev = key ? prevByKey.get(key) : null;
-
-      // If new draft item has no imageUrl but previous one had, keep it.
-      const nextUrl = pickImageUrl(it);
-      const prevUrl = prev ? pickImageUrl(prev) : "";
-
-      if (!nextUrl && prevUrl) {
-        return { ...it, imageUrl: prevUrl };
-      }
-      return it;
-    });
-
-    return { ...nextDraft, items: mergedItems };
-  }
-
-  function createOrderItemCard(item) {
-    const card = document.createElement("div");
-    card.className = "aiw-order-item";
-    card.dataset.orderItemId = item.id || "";
-    card.dataset.itemCode = item.code || "";
-    card.dataset.menuItemId = item.menuItemId || "";
-
-    // image (optional)
-    const imgWrap = document.createElement("div");
-    imgWrap.className = "aiw-order-item-image";
-
-    const imgUrl = pickImageUrl(item);
-
-    if (imgUrl) {
-      const img = document.createElement("img");
-      img.src = imgUrl;
-      img.alt = item.name || item.code || "";
-      imgWrap.appendChild(img);
-    }
-
-    const main = document.createElement("div");
-    main.className = "aiw-order-item-main";
-
-    const nameEl = document.createElement("div");
-    nameEl.className = "aiw-order-item-name";
-    nameEl.textContent = item.name || item.code || "Без назви";
-
-    const metaEl = document.createElement("div");
-    metaEl.className = "aiw-order-item-meta";
-
-    const qty = item.quantity != null ? item.quantity : 1;
-    const priceStr = formatPrice(item.unitPrice);
-
-    // read-only: quantity editing запрещено в сообщениях (только в корзине overlay)
-    metaEl.textContent = priceStr ? `${qty} × ${priceStr}` : `${qty} ×`;
-
-    main.appendChild(nameEl);
-    main.appendChild(metaEl);
-
-    card.appendChild(imgWrap);
-    card.appendChild(main);
-
-    return card;
-  }
-
-  function renderOrderDraft(orderDraft) {
-    if (
-      !orderDraft ||
-      !Array.isArray(orderDraft.items) ||
-      orderDraft.items.length === 0
-    ) {
-      return null;
-    }
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "aiw-order-draft";
-    wrapper.dataset.orderId = orderDraft.id;
-    wrapper._orderDraft = orderDraft;
-
-    const list = document.createElement("div");
-    list.className = "aiw-order-items";
-
-    orderDraft.items.forEach((item) => {
-      // >>> КРИТИЧНО: передаём и orderDraft, и wrapper <<<
-      list.appendChild(createOrderItemCard(item));
-    });
-
-    wrapper.appendChild(list);
-
-    // Зелёная галочка submit в правом нижнем углу блока
-    const submitBtn = document.createElement("button");
-    submitBtn.className = "aiw-order-submit";
-    submitBtn.innerHTML =
-      '<span class="aiw-draft-submit-icon" aria-hidden="true"></span>';
-    submitBtn.title = "Перейти в кошик (підтвердження та відправка — там)";
-
-    submitBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      // cart-first: переносим пользователя в корзину overlay
-      if (typeof openCartOverlay === "function") openCartOverlay();
-      try {
-        if (miniCartEl) {
-          miniCartEl.classList.add("aiw-pulse");
-          setTimeout(
-            () => miniCartEl && miniCartEl.classList.remove("aiw-pulse"),
-            650,
-          );
-        }
-      } catch (_) {}
-    });
-
-    wrapper.appendChild(submitBtn);
-
-    return wrapper;
-  }
-
-  function appendBotMessageWithOrder(replyText, orderDraft) {
-    if (!messagesEl) return;
-
-    const container = document.createElement("div");
-    container.className = "aiw-msg aiw-msg-bot aiw-msg-wide";
-
-    const textEl = document.createElement("div");
-    textEl.className = "aiw-msg-text";
-    textEl.textContent = replyText;
-
-    container.appendChild(textEl);
-
-    const draftEl = renderOrderDraft(orderDraft);
-    if (draftEl) {
-      container.appendChild(draftEl);
-
-      // 🔹 запоминаем последний драфт, чтобы апсел знал, куда добавлять блюдо
-      lastOrderDraft = orderDraft;
-      lastOrderDraftEl = draftEl;
-      renderMiniCart(orderDraft);
-      if (typeof renderCartOverlay === "function")
-        renderCartOverlay(orderDraft);
-    }
-
-    messagesEl.appendChild(container);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  // ---------- UI: menu recommendations (ask_menu) as product cards ----------
-  function createRecommendationItemCard(item) {
-    const card = document.createElement("div");
-    // reuse draft/upsell visuals
-    card.className = "aiw-order-item aiw-reco-item";
-
-    const imgWrap = document.createElement("div");
-    imgWrap.className = "aiw-order-item-image";
-
-    const recoImg = pickImageUrl(item);
-    if (recoImg) {
-      const img = document.createElement("img");
-      img.src = recoImg;
-      img.alt = item.name || item.code || "";
-      imgWrap.appendChild(img);
-    }
-
-    const main = document.createElement("div");
-    main.className = "aiw-order-item-main";
-
-    const nameEl = document.createElement("div");
-    nameEl.className = "aiw-order-item-name";
-    nameEl.textContent = item.name || item.code || "Без назви";
-
-    const metaEl = document.createElement("div");
-    metaEl.className = "aiw-order-item-meta";
-    const priceStr = formatPrice(item.unitPrice);
-    metaEl.textContent = priceStr ? priceStr : "";
-
-    main.appendChild(nameEl);
-    main.appendChild(metaEl);
-
-    const addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "aiw-upsell-add-btn aiw-reco-add-btn";
-    addBtn.textContent = "+";
-
-    addBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const code = item.code || item.item_code;
-      if (!code) return;
-
-      const operation = {
-        type: "set",
-        item_code: code,
-        quantity: 1,
-      };
-
-      const updatedDraft = await callOrderUiUpdate(null, operation);
-      if (updatedDraft) {
-        lastOrderDraft = updatedDraft;
-
-        if (lastOrderDraftEl && lastOrderDraftEl.isConnected) {
-          rerenderOrderDraftElement(lastOrderDraftEl, updatedDraft);
-        } else {
-          const nd =
-            updatedDraft &&
-            Array.isArray(updatedDraft.items) &&
-            updatedDraft.items.length
-              ? updatedDraft
-              : null;
-          renderMiniCart(nd);
-          if (typeof renderCartOverlay === "function") renderCartOverlay(nd);
-        }
-
-        // open cart overlay after add
-        if (typeof openCartOverlay === "function") openCartOverlay();
-
-        try {
-          if (miniCartEl) {
-            miniCartEl.classList.add("aiw-pulse");
-            setTimeout(
-              () => miniCartEl && miniCartEl.classList.remove("aiw-pulse"),
-              650,
-            );
-          }
-        } catch (_) {}
-      }
-    });
-
-    card.appendChild(imgWrap);
-    card.appendChild(main);
-    card.appendChild(addBtn);
-
-    return card;
-  }
-
-  function appendBotMessageWithRecommendations(replyText, recommendations) {
-    if (!messagesEl) return;
-    rememberImagesFromList(recommendations || []);
-
-    const container = document.createElement("div");
-    container.className = "aiw-msg aiw-msg-bot aiw-msg-wide aiw-msg-reco";
-
-    const textEl = document.createElement("div");
-    textEl.className = "aiw-msg-text";
-    textEl.textContent = replyText;
-    container.appendChild(textEl);
-
-    const wrap = document.createElement("div");
-    wrap.className = "aiw-order-draft aiw-reco-wrap";
-
-    const list = document.createElement("div");
-    list.className = "aiw-order-items aiw-reco-items";
-
-    (recommendations || []).forEach((it) => {
-      list.appendChild(createRecommendationItemCard(it));
-    });
-
-    wrap.appendChild(list);
-    container.appendChild(wrap);
-
-    messagesEl.appendChild(container);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  function appendUpsellMessage(upsell) {
-    if (
-      !messagesEl ||
-      !upsell ||
-      !Array.isArray(upsell.items) ||
-      upsell.items.length === 0
-    ) {
-      return;
-    }
-
-    const container = document.createElement("div");
-    container.className = "aiw-msg aiw-msg-bot aiw-msg-upsell";
-
-    const textEl = document.createElement("div");
-    textEl.className = "aiw-upsell-text";
-
-    const fallbackText = "Також можемо порекомендувати ось ці страви:";
-    textEl.textContent = upsell.text || fallbackText;
-
-    container.appendChild(textEl);
-
-    const itemsWrap = document.createElement("div");
-    itemsWrap.className = "aiw-upsell-items";
-    rememberImagesFromList(upsell.items || []);
-
-    upsell.items.forEach((item) => {
-      const card = document.createElement("div");
-      card.className = "aiw-upsell-item";
-
-      const nameEl = document.createElement("div");
-      nameEl.className = "aiw-order-item-name";
-      nameEl.textContent = item.name || item.code || "Без назви";
-
-      const metaEl = document.createElement("div");
-      metaEl.className = "aiw-order-item-meta";
-      const priceStr = formatPrice(item.unitPrice);
-      metaEl.textContent = priceStr ? priceStr : "";
-      const trustEl = document.createElement("div");
-      trustEl.className = "aiw-upsell-trust";
-      trustEl.textContent =
-        item.trust_text || item.trustText || item.text || "";
-
-      const addBtn = document.createElement("button");
-      addBtn.type = "button";
-      addBtn.className = "aiw-upsell-add-btn";
-      addBtn.textContent = "+";
-
-      addBtn.addEventListener("click", async () => {
-        if (!lastOrderDraft || !lastOrderDraftEl) {
-          appendSystemMessage("Спочатку зробіть основне замовлення.");
-          return;
-        }
-
-        const operation = {
-          type: "set",
-          item_code: item.code,
-          // menu_item_id: item.menuItemId, // можно подключить позже
-          quantity: 1,
-        };
-
-        const updatedDraft = await callOrderUiUpdate(
-          lastOrderDraft.id,
-          operation,
-        );
-        if (updatedDraft) {
-          rerenderOrderDraftElement(lastOrderDraftEl, updatedDraft);
-        }
-      });
-
-      card.appendChild(nameEl);
-      card.appendChild(metaEl);
-      if (trustEl.textContent) card.appendChild(trustEl);
-      card.appendChild(addBtn);
-
-      itemsWrap.appendChild(card);
-    });
-
-    container.appendChild(itemsWrap);
-
-    messagesEl.appendChild(container);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  /**
-   * Подключение к WebSocket-стриму голоса
-   * ws://localhost:3000/api/v1/voice/stream
-   */
-  async function ensureVoiceWebSocket() {
-    if (voiceWs && voiceWsReady && voiceWs.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    return new Promise((resolve, reject) => {
-      try {
-        // Для dev достаточно захардкодить localhost:3000
-        const wsUrl = "ws:https://ai-waiter-0b4e.onrender.com/api/v1";
-
-        voiceWs = new WebSocket(wsUrl);
-        voiceWsReady = false;
-
-        voiceWs.onopen = () => {
-          console.log("[VoiceWS] connected");
-          voiceWsReady = true;
-          // опциональный ping
-          voiceWs.send(JSON.stringify({ type: "ping" }));
-          resolve();
-        };
-
-        voiceWs.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "pong") {
-              console.log("[VoiceWS] pong");
-            } else if (msg.type === "transcript") {
-              const text = msg.text || "";
-              console.log("[VoiceWS] transcript:", text);
-              if (
-                voiceWsOnTranscript &&
-                typeof voiceWsOnTranscript === "function"
-              ) {
-                voiceWsOnTranscript(text);
-              }
-            } else if (msg.type === "error") {
-              console.error("[VoiceWS] error message:", msg.message);
-            }
-          } catch (e) {
-            console.warn("[VoiceWS] non-JSON message", event.data);
-          }
-        };
-
-        voiceWs.onerror = (err) => {
-          console.error("[VoiceWS] ws error", err);
-        };
-
-        voiceWs.onclose = () => {
-          console.log("[VoiceWS] ws closed");
-          voiceWsReady = false;
-        };
-      } catch (err) {
-        console.error("[VoiceWS] ensureVoiceWebSocket error", err);
-        reject(err);
-      }
-    });
-  }
-
-  /**
-   * Старт записи микрофона.
-   * onTextRecognized(text) будет вызван, когда ASR вернет текст.
-   */
-  /**
-   * Старт записи микрофона (WS-режим).
-   * onTextRecognized(text) будет вызван, когда WS вернет transcript.
-   */
-  async function startVoiceRecording(onTextRecognized, micButtonEl) {
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("Ваш браузер не підтримує запис аудіо.");
-        return;
-      }
-
-      // Подключаемся к WebSocket-стриму, если ещё не подключены
-      await ensureVoiceWebSocket();
-
-      if (!voiceWs || voiceWs.readyState !== WebSocket.OPEN) {
-        alert("Не вдалося підключитися до голосового сервера.");
-        return;
-      }
-
-      // Запоминаем колбэк для расшифровки
-      voiceWsOnTranscript = onTextRecognized;
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      audioChunks = [];
-      mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          // Вместо накопления и HTTP — отправляем чанки прямо в WS
-          if (voiceWs && voiceWs.readyState === WebSocket.OPEN) {
-            voiceWs.send(event.data);
-          }
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        try {
-          // Говорим серверу: "аудио закончено, можно распознавать"
-          if (voiceWs && voiceWs.readyState === WebSocket.OPEN) {
-            voiceWs.send(JSON.stringify({ type: "end" }));
-          }
-        } catch (err) {
-          console.error("[Voice] onstop WS send error:", err);
-        } finally {
-          if (mediaRecorder && mediaRecorder.stream) {
-            mediaRecorder.stream.getTracks().forEach((t) => t.stop());
-          }
-          mediaRecorder = null;
-          audioChunks = [];
-          isRecording = false;
-          if (micButtonEl) {
-            micButtonEl.classList.remove("aiw-mic-recording");
-          }
-        }
-      };
-
-      mediaRecorder.start(200); // каждые 200ms чанки
-      isRecording = true;
-      if (micButtonEl) {
-        micButtonEl.classList.add("aiw-mic-recording");
-      }
-    } catch (err) {
-      console.error("[Voice] startVoiceRecording (WS) error:", err);
-      alert("Не вдалося отримати доступ до мікрофона або WebSocket.");
-    }
-  }
-
-  function stopVoiceRecording(micButtonEl) {
-    if (!mediaRecorder || !isRecording) return;
-    mediaRecorder.stop();
-    isRecording = false;
-    if (micButtonEl) {
-      micButtonEl.classList.remove("aiw-mic-recording");
-    }
-  }
-
-  // ---------- Инициализация сессии (QR или dev) ----------
+  // ---------- Session init only via QR ----------
 
   async function initSession() {
     const qrToken = getQrTokenFromUrl();
@@ -949,14 +324,13 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ qr_token: qrToken }),
-          credentials: "include", // device_id через httpOnly cookie
+          credentials: "include",
         });
 
         if (!res.ok) {
           console.error("Failed to verify QR token", await res.text());
           appendSystemMessage(
-            "Не вдалося підтвердити QR-токен. Можливо, строк дії посилання закінчився. " +
-              "Спробуйте оновити QR-код на столі.",
+            "Не вдалося підтвердити QR-токен. Можливо, строк дії посилання закінчився. Спробуйте оновити QR-код на столі.",
           );
           return;
         }
@@ -965,35 +339,14 @@
         sessionToken = data.session_token;
         console.log("[AI Waiter] Session started via QR", data);
         appendSystemMessage(
-          "Я підʼєднався до вашого столика. Можемо робити замовлення 🙂",
+          "Я під'єднався до вашого столика. Можемо робити замовлення.",
         );
       } else {
-        // 🔧 Фоллбек для локалки — dev-режим без QR
-        console.log("[AI Waiter] No QR token in URL. Using dev-start session.");
-        const res = await fetch(`${API_BASE}/session/dev-start`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            restaurant_id: "azuma_demo",
-            table_id: "7",
-          }),
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          console.error("Failed to init dev session", await res.text());
-          appendSystemMessage(
-            "Не вдалося ініціалізувати dev-сесію. Перевір backend.",
-          );
-          return;
-        }
-
-        const data = await res.json();
-        sessionToken = data.session_token;
-        console.log("[AI Waiter] Dev session started", data);
+        console.warn("[AI Waiter] No QR token in URL. Session was not created.");
         appendSystemMessage(
-          "Dev-сесія запущена без QR. Можна тестувати замовлення.",
+          "Scan the table QR code to start an AI waiter session. Ordering is disabled without QR.",
         );
+        return;
       }
     } catch (err) {
       console.error("Error in initSession", err);
@@ -1001,7 +354,7 @@
     }
   }
 
-  // ---------- UI: стили ----------
+  // ---------- UI: СЃС‚РёР»Рё ----------
 
   function createStyles() {
     const style = document.createElement("style");
@@ -1046,8 +399,8 @@ body.aiw-scroll-lock{
         color: var(--aiw-text-sub);
       }
 
-      /* ---------- Плавающая кнопка-виджет ---------- */
-      /* ---------- Плавающая кнопка-капля (visionOS style) ---------- */
+      /* ---------- РџР»Р°РІР°СЋС‰Р°СЏ РєРЅРѕРїРєР°-РІРёРґР¶РµС‚ ---------- */
+      /* ---------- РџР»Р°РІР°СЋС‰Р°СЏ РєРЅРѕРїРєР°-РєР°РїР»СЏ (visionOS style) ---------- */
       .aiw-button {
         position: fixed;
         right: 20px;
@@ -1057,13 +410,13 @@ body.aiw-scroll-lock{
         z-index: 9999;
 
         border-radius: 50%;
-        /* почти прозрачная капля */
+        /* РїРѕС‡С‚Рё РїСЂРѕР·СЂР°С‡РЅР°СЏ РєР°РїР»СЏ */
         background:
           radial-gradient(circle at 30% 0, rgba(255,255,255,0.50), transparent 55%),
           radial-gradient(circle at 50% 80%, rgba(15,23,42,0.55), rgba(15,23,42,0.05) 65%, transparent 80%);
         border: 1px solid rgba(255, 255, 255, 0.40);
 
-        /* объём и лёгкая тень под каплей */
+        /* РѕР±СЉС‘Рј Рё Р»С‘РіРєР°СЏ С‚РµРЅСЊ РїРѕРґ РєР°РїР»РµР№ */
         box-shadow:
           0 10px 30px rgba(15, 23, 42, 0.85),
           inset 0 1px 0 rgba(255,255,255,0.4);
@@ -1074,29 +427,29 @@ body.aiw-scroll-lock{
         cursor: pointer;
         user-select: none;
 
-        /* лёгкое дрожание / пульсация капли */
+        /* Р»С‘РіРєРѕРµ РґСЂРѕР¶Р°РЅРёРµ / РїСѓР»СЊСЃР°С†РёСЏ РєР°РїР»Рё */
         transform-origin: center bottom;
         animation: aiw-dropPulse 2.8s ease-in-out infinite;
       }
 
 
       /* =========================
-         HEADER LAUNCHER (CIRCLES) — FINAL
+         HEADER LAUNCHER (CIRCLES) вЂ” FINAL
          1 big glass circle over logo + 2 small circles on the right
          ========================= */
 
-      /* ВАЖНО: контейнер НЕ покрывает весь хедер (иначе блокирует клики).
-         Это маленькая “группа” вокруг логотипа. */
+      /* Р’РђР–РќРћ: РєРѕРЅС‚РµР№РЅРµСЂ РќР• РїРѕРєСЂС‹РІР°РµС‚ РІРµСЃСЊ С…РµРґРµСЂ (РёРЅР°С‡Рµ Р±Р»РѕРєРёСЂСѓРµС‚ РєР»РёРєРё).
+         Р­С‚Рѕ РјР°Р»РµРЅСЊРєР°СЏ вЂњРіСЂСѓРїРїР°вЂќ РІРѕРєСЂСѓРі Р»РѕРіРѕС‚РёРїР°. */
       .aiw-button.aiw-button--header{
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 220px;            /* группа: главный круг + 2 справа */
+        width: 220px;            /* РіСЂСѓРїРїР°: РіР»Р°РІРЅС‹Р№ РєСЂСѓРі + 2 СЃРїСЂР°РІР° */
         height: 150px;
         transform: translate(-50%, -50%);
         z-index: 9999;
 
-        /* полностью убираем визуал .aiw-button */
+        /* РїРѕР»РЅРѕСЃС‚СЊСЋ СѓР±РёСЂР°РµРј РІРёР·СѓР°Р» .aiw-button */
         right: auto;
         bottom: auto;
         background: none !important;
@@ -1106,7 +459,7 @@ body.aiw-scroll-lock{
         overflow: visible;
       }
 
-      /* Чтобы при клике не появлялись “овалы” и scale */
+      /* Р§С‚РѕР±С‹ РїСЂРё РєР»РёРєРµ РЅРµ РїРѕСЏРІР»СЏР»РёСЃСЊ вЂњРѕРІР°Р»С‹вЂќ Рё scale */
       .aiw-button.aiw-button--header:hover,
       .aiw-button.aiw-button--header:active{
         box-shadow: none !important;
@@ -1144,11 +497,11 @@ body.aiw-scroll-lock{
         will-change: transform, box-shadow;
       }
 
-      /* BIG circle: полностью накрывает круглый логотип */
+      /* BIG circle: РїРѕР»РЅРѕСЃС‚СЊСЋ РЅР°РєСЂС‹РІР°РµС‚ РєСЂСѓРіР»С‹Р№ Р»РѕРіРѕС‚РёРї */
       .aiw-button.aiw-button--header .aiw-hc--main{
         width: 100px;
         height: 100px;
-        left: 60px;              /* центр группы */
+        left: 60px;              /* С†РµРЅС‚СЂ РіСЂСѓРїРїС‹ */
         top: 50%;
         transform: translateY(-50%);
       }
@@ -1181,11 +534,11 @@ body.aiw-scroll-lock{
           inset 0 1px 0 rgba(255,255,255,.28);
       }
 
-      /* 2 малых справа */
+      /* 2 РјР°Р»С‹С… СЃРїСЂР°РІР° */
       .aiw-button.aiw-button--header .aiw-hc--side{
         width: 44px;
         height: 44px;
-        left: 170px;            /* справа от главного круга */
+        left: 170px;            /* СЃРїСЂР°РІР° РѕС‚ РіР»Р°РІРЅРѕРіРѕ РєСЂСѓРіР° */
       }
 
       .aiw-button.aiw-button--header .aiw-hc--waiter{
@@ -1213,7 +566,7 @@ body.aiw-scroll-lock{
         filter: drop-shadow(0 6px 14px rgba(0,0,0,.45));
       }
 
-/* ---------- Чат: iOS 18 glass-panel ---------- */
+/* ---------- Р§Р°С‚: iOS 18 glass-panel ---------- */
       .aiw-chat {
         position: fixed;
         right: 16px;
@@ -1282,8 +635,8 @@ body.aiw-scroll-lock{
       .aiw-quick-btn:disabled{ opacity: .45; cursor: not-allowed; }
 
 
-      /* ---------- Мобильный режим: чат на весь экран ---------- */
-      /* ---------- Мобильный режим: чат на весь экран ---------- */
+      /* ---------- РњРѕР±РёР»СЊРЅС‹Р№ СЂРµР¶РёРј: С‡Р°С‚ РЅР° РІРµСЃСЊ СЌРєСЂР°РЅ ---------- */
+      /* ---------- РњРѕР±РёР»СЊРЅС‹Р№ СЂРµР¶РёРј: С‡Р°С‚ РЅР° РІРµСЃСЊ СЌРєСЂР°РЅ ---------- */
 @media (max-width: 768px) {
   .aiw-chat{
     position: fixed;
@@ -1294,7 +647,7 @@ body.aiw-scroll-lock{
     border-radius: 0;
     border: none;
     box-shadow: none;
-    overflow: hidden;      /* чтобы ничего не вылезало */
+    overflow: hidden;      /* С‡С‚РѕР±С‹ РЅРёС‡РµРіРѕ РЅРµ РІС‹Р»РµР·Р°Р»Рѕ */
     overscroll-behavior: contain;
   }
 
@@ -1310,7 +663,7 @@ body.aiw-scroll-lock{
   }
 }
 
-      /* ---------- Хедер чата ---------- */
+      /* ---------- РҐРµРґРµСЂ С‡Р°С‚Р° ---------- */
       .aiw-chat-header {
         display: flex;
         align-items: center;
@@ -1321,7 +674,7 @@ body.aiw-scroll-lock{
         position: relative;
       }
 
-      /* Slot for moving the “drops” (aiw-header-wrap) into chat header */
+      /* Slot for moving the вЂњdropsвЂќ (aiw-header-wrap) into chat header */
 .aiw-chat-header-slot{
   position: relative;
   flex: 1;
@@ -1366,7 +719,7 @@ body.aiw-scroll-lock{
   transform: none !important;
 }
 
-      /* ---------- Зона сообщений ---------- */
+      /* ---------- Р—РѕРЅР° СЃРѕРѕР±С‰РµРЅРёР№ ---------- */
       .aiw-chat-messages {
         padding: 10px 12px 12px;
         flex: 1;
@@ -1390,7 +743,7 @@ body.aiw-scroll-lock{
         border-radius: 999px;
       }
 
-      /* ---------- Пузырьки сообщений (Telegram-like) ---------- */
+      /* ---------- РџСѓР·С‹СЂСЊРєРё СЃРѕРѕР±С‰РµРЅРёР№ (Telegram-like) ---------- */
       .aiw-msg {
         max-width: 88%;
 
@@ -1416,7 +769,7 @@ body.aiw-scroll-lock{
         align-self: flex-end;
         margin-left: auto;
 
-        /* iOS 18-ish glass bubble, близко к #888, но чуть светлее чем у бота */
+        /* iOS 18-ish glass bubble, Р±Р»РёР·РєРѕ Рє #888, РЅРѕ С‡СѓС‚СЊ СЃРІРµС‚Р»РµРµ С‡РµРј Сѓ Р±РѕС‚Р° */
         background:
           radial-gradient(140% 180% at 20% 18%,
             rgba(255,255,255,0.22),
@@ -1436,7 +789,7 @@ body.aiw-scroll-lock{
       .aiw-msg-bot {
   align-self: flex-start;
 
-  /* Dark matte glass — почти без подсветок */
+  /* Dark matte glass вЂ” РїРѕС‡С‚Рё Р±РµР· РїРѕРґСЃРІРµС‚РѕРє */
   background:
     radial-gradient(140% 180% at 20% 18%,
       rgba(255,255,255,0.02),
@@ -1470,7 +823,7 @@ body.aiw-scroll-lock{
         padding: 2px 0;
       }
 
-      /* ---------- Драфт заказа (карточка) ---------- */
+      /* ---------- Р”СЂР°С„С‚ Р·Р°РєР°Р·Р° (РєР°СЂС‚РѕС‡РєР°) ---------- */
       .aiw-order-draft {
         position: relative;
         padding: 8px 10px 12px;
@@ -1481,10 +834,10 @@ body.aiw-scroll-lock{
         box-shadow: 0 10px 30px rgba(0,0,0,0.5);
       }
 
-      /* ---------- Welcome как карточка драфта ---------- */
+      /* ---------- Welcome РєР°Рє РєР°СЂС‚РѕС‡РєР° РґСЂР°С„С‚Р° ---------- */
 .aiw-welcome-draft {
-  /* ничего радикального — используем те же стили .aiw-order-draft */
-  margin-top: 0;            /* welcome обычно первый — без лишнего отступа */
+  /* РЅРёС‡РµРіРѕ СЂР°РґРёРєР°Р»СЊРЅРѕРіРѕ вЂ” РёСЃРїРѕР»СЊР·СѓРµРј С‚Рµ Р¶Рµ СЃС‚РёР»Рё .aiw-order-draft */
+  margin-top: 0;            /* welcome РѕР±С‹С‡РЅРѕ РїРµСЂРІС‹Р№ вЂ” Р±РµР· Р»РёС€РЅРµРіРѕ РѕС‚СЃС‚СѓРїР° */
 }
 
 .aiw-welcome-text {
@@ -1565,7 +918,7 @@ body.aiw-scroll-lock{
         color: var(--aiw-text-muted);
       }
 
-      /* ---------- + / − в карточке драфта ---------- */
+      /* ---------- + / в€’ РІ РєР°СЂС‚РѕС‡РєРµ РґСЂР°С„С‚Р° ---------- */
       .aiw-order-item-controls {
         display: flex;
         gap: 4px;
@@ -1590,7 +943,7 @@ body.aiw-scroll-lock{
         background: rgba(30,64,175,0.5);
       }
 
-      /* ---------- Апсел: текст + карточки товара в одном стиле с драфтом ---------- */
+      /* ---------- РђРїСЃРµР»: С‚РµРєСЃС‚ + РєР°СЂС‚РѕС‡РєРё С‚РѕРІР°СЂР° РІ РѕРґРЅРѕРј СЃС‚РёР»Рµ СЃ РґСЂР°С„С‚РѕРј ---------- */
       .aiw-msg-upsell {
         margin-top: 4px;
       }
@@ -1626,7 +979,7 @@ body.aiw-scroll-lock{
         font-size: 12px;
       }
 
-      /* ---------- Mini-cart (under header / “drops”) ---------- */
+      /* ---------- Mini-cart (under header / вЂњdropsвЂќ) ---------- */
 .aiw-mini-cart{
   margin: 0 12px 0 12px;
   padding: 10px 10px;
@@ -1827,7 +1180,7 @@ body.aiw-scroll-lock{
   overflow: hidden;
   background: rgba(255,255,255,.08);
 
-  flex: 0 0 100px;   /* важно: чтобы flex не сжимал */
+  flex: 0 0 100px;   /* РІР°Р¶РЅРѕ: С‡С‚РѕР±С‹ flex РЅРµ СЃР¶РёРјР°Р» */
 }
 .aiw-cart-item-img img{
   width:100%;
@@ -1934,13 +1287,13 @@ body.aiw-scroll-lock{
   font-size: 12px;
   font-weight: 600;
 
-  /* Белый стеклянный фон */
+  /* Р‘РµР»С‹Р№ СЃС‚РµРєР»СЏРЅРЅС‹Р№ С„РѕРЅ */
   background: rgba(255, 255, 255, 0.88);
 
-  /* Тёмный текст для контраста */
+  /* РўС‘РјРЅС‹Р№ С‚РµРєСЃС‚ РґР»СЏ РєРѕРЅС‚СЂР°СЃС‚Р° */
   color: rgba(0, 0, 0, 0.85);
 
-  /* Белая мягкая подсветка */
+  /* Р‘РµР»Р°СЏ РјСЏРіРєР°СЏ РїРѕРґСЃРІРµС‚РєР° */
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.45),
     0 3px 10px rgba(255, 255, 255, 0.35),
@@ -1967,10 +1320,10 @@ body.aiw-scroll-lock{
         
          background: rgba(255, 255, 255, 0.88);
 
-  /* Тёмный текст для контраста */
+  /* РўС‘РјРЅС‹Р№ С‚РµРєСЃС‚ РґР»СЏ РєРѕРЅС‚СЂР°СЃС‚Р° */
   color: rgba(0, 0, 0, 0.85);
 
-  /* Белая мягкая подсветка */
+  /* Р‘РµР»Р°СЏ РјСЏРіРєР°СЏ РїРѕРґСЃРІРµС‚РєР° */
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.45),
     0 3px 10px rgba(255, 255, 255, 0.35),
@@ -1993,7 +1346,7 @@ body.aiw-scroll-lock{
 
       
 
-      /* ---------- Инпут внизу: стекло, закреплён к низу ---------- */
+      /* ---------- РРЅРїСѓС‚ РІРЅРёР·Сѓ: СЃС‚РµРєР»Рѕ, Р·Р°РєСЂРµРїР»С‘РЅ Рє РЅРёР·Сѓ ---------- */
       .aiw-chat-input {
         display: flex;
         align-items: center;
@@ -2007,14 +1360,14 @@ body.aiw-scroll-lock{
         
       }
 
-      /* стеклянный прозрачный инпут */
+      /* СЃС‚РµРєР»СЏРЅРЅС‹Р№ РїСЂРѕР·СЂР°С‡РЅС‹Р№ РёРЅРїСѓС‚ */
       .aiw-chat-input input {
           flex: 1;
   border-radius: 999px;
 
-  /* Glass 2.0 — МАКСИМАЛЬНО прозрачное стекло */
-  background: rgba(255, 255, 255, 0.03);  /* было 0.08 */
-  border: 0px solid rgba(255, 255, 255, 0.22); /* чуть ярче */
+  /* Glass 2.0 вЂ” РњРђРљРЎРРњРђР›Р¬РќРћ РїСЂРѕР·СЂР°С‡РЅРѕРµ СЃС‚РµРєР»Рѕ */
+  background: rgba(255, 255, 255, 0.03);  /* Р±С‹Р»Рѕ 0.08 */
+  border: 0px solid rgba(255, 255, 255, 0.22); /* С‡СѓС‚СЊ СЏСЂС‡Рµ */
 
 
   padding: 9px 14px;
@@ -2023,7 +1376,7 @@ body.aiw-scroll-lock{
   min-height: 36px;
   box-shadow: none;
 
-  /* лёгкий внутренний белый highlight → эффект настоящего стекла */
+  /* Р»С‘РіРєРёР№ РІРЅСѓС‚СЂРµРЅРЅРёР№ Р±РµР»С‹Р№ highlight в†’ СЌС„С„РµРєС‚ РЅР°СЃС‚РѕСЏС‰РµРіРѕ СЃС‚РµРєР»Р° */
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
       }
 
@@ -2031,14 +1384,14 @@ body.aiw-scroll-lock{
         color: rgba(255, 255, 255, 0.45);
       }
 
-      /* стеклянные кнопки отправки и микрофона */
+      /* СЃС‚РµРєР»СЏРЅРЅС‹Рµ РєРЅРѕРїРєРё РѕС‚РїСЂР°РІРєРё Рё РјРёРєСЂРѕС„РѕРЅР° */
       .aiw-chat-input button {
           width: 38px;
   height: 38px;
   border-radius: 999px;
 flex: 0 0 auto;
-  /* Ещё более стеклянные */
-  background: rgba(255, 255, 255, 0.03);  /* было 0.08 */
+  /* Р•С‰С‘ Р±РѕР»РµРµ СЃС‚РµРєР»СЏРЅРЅС‹Рµ */
+  background: rgba(255, 255, 255, 0.03);  /* Р±С‹Р»Рѕ 0.08 */
   
 
 
@@ -2050,7 +1403,7 @@ flex: 0 0 auto;
   font-size: 0;
   box-shadow: none;
 
-  /* Лёгкий highlight сверху */
+  /* Р›С‘РіРєРёР№ highlight СЃРІРµСЂС…Сѓ */
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
 }
 
@@ -2060,7 +1413,7 @@ flex: 0 0 auto;
         position: relative;
       }
 
-      /* базовый стиль иконок */
+      /* Р±Р°Р·РѕРІС‹Р№ СЃС‚РёР»СЊ РёРєРѕРЅРѕРє */
       .aiw-send-button::before,
       .aiw-mic-button::before {
         content: "";
@@ -2072,24 +1425,24 @@ flex: 0 0 auto;
         background-size: 19px;
       }
 
-      /* иконка отправки */
+      /* РёРєРѕРЅРєР° РѕС‚РїСЂР°РІРєРё */
       .aiw-send-button::before {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M4 4l16 8-16 8 3-8-3-8zm4.7 7.9l-1.4 3.8L16.3 12 7.3 7.3l1.4 3.8z'/%3E%3C/svg%3E");
       }
 
-      /* иконка микрофона */
+      /* РёРєРѕРЅРєР° РјРёРєСЂРѕС„РѕРЅР° */
       .aiw-mic-button::before {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zm5 9a1 1 0 0 0-2 0 3 3 0 0 1-6 0 1 1 0 1 0-2 0 5 5 0 0 0 4 4.9V19H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.1A5 5 0 0 0 17 12z'/%3E%3C/svg%3E");
       }
 
-      /* Отдельно микрофон в режиме записи — лёгкий красный акцент, без тени */
+      /* РћС‚РґРµР»СЊРЅРѕ РјРёРєСЂРѕС„РѕРЅ РІ СЂРµР¶РёРјРµ Р·Р°РїРёСЃРё вЂ” Р»С‘РіРєРёР№ РєСЂР°СЃРЅС‹Р№ Р°РєС†РµРЅС‚, Р±РµР· С‚РµРЅРё */
       .aiw-mic-button.aiw-mic-recording {
         background: rgba(255, 80, 80, 0.12);
         border-color: rgba(255, 80, 80, 0.45);
         box-shadow: none;
       }
 
-      /* ---------- Анимация лёгкого "пульса" (микрофон / кнопка) ---------- */
+      /* ---------- РђРЅРёРјР°С†РёСЏ Р»С‘РіРєРѕРіРѕ "РїСѓР»СЊСЃР°" (РјРёРєСЂРѕС„РѕРЅ / РєРЅРѕРїРєР°) ---------- */
       @keyframes aiw-pulse-soft {
         0%   { transform: scale(1); }
         50%  { transform: scale(1.15); }
@@ -2128,7 +1481,7 @@ flex: 0 0 auto;
   background: var(--aiw-bg-glass-strong);
 }
 
-/* Общий стиль SVG-иконок в header launcher */
+/* РћР±С‰РёР№ СЃС‚РёР»СЊ SVG-РёРєРѕРЅРѕРє РІ header launcher */
 .aiw-button.aiw-button--header .aiw-hc img.aiw-icon{
   width: 22px;
   height: 22px;
@@ -2165,7 +1518,7 @@ flex: 0 0 auto;
 }
 
 
-            /* Сфера внутри капли, в которой левитирует логотип */
+            /* РЎС„РµСЂР° РІРЅСѓС‚СЂРё РєР°РїР»Рё, РІ РєРѕС‚РѕСЂРѕР№ Р»РµРІРёС‚РёСЂСѓРµС‚ Р»РѕРіРѕС‚РёРї */
       .aiw-button-logo {
         display: flex;
         align-items: center;
@@ -2177,7 +1530,7 @@ flex: 0 0 auto;
 
       
 
-      /* Сам логотип (SVG / IMG) в миниатюре, который левитирует */
+      /* РЎР°Рј Р»РѕРіРѕС‚РёРї (SVG / IMG) РІ РјРёРЅРёР°С‚СЋСЂРµ, РєРѕС‚РѕСЂС‹Р№ Р»РµРІРёС‚РёСЂСѓРµС‚ */
       .aiw-button-logo img,
       .aiw-button-logo svg {
         width: 72%;
@@ -2192,24 +1545,24 @@ flex: 0 0 auto;
       /* ---------- Welcome message (plain text, no card) ---------- */
 
 .aiw-msg-welcome .aiw-msg-bubble {
-  background: transparent;     /* ❗ убираем чёрный фон */
+  background: transparent;     /* вќ— СѓР±РёСЂР°РµРј С‡С‘СЂРЅС‹Р№ С„РѕРЅ */
   box-shadow: none;
   border: none;
-  padding: 6px 4px;            /* как у текста драфта */
+  padding: 6px 4px;            /* РєР°Рє Сѓ С‚РµРєСЃС‚Р° РґСЂР°С„С‚Р° */
 }
 
 .aiw-welcome-text {
-  color: #ffffff;              /* чисто белый */
+  color: #ffffff;              /* С‡РёСЃС‚Рѕ Р±РµР»С‹Р№ */
   font-size: 14px;
   line-height: 1.4;
   font-weight: 400;
-  opacity: 0.92;               /* мягко, как в драфте */
+  opacity: 0.92;               /* РјСЏРіРєРѕ, РєР°Рє РІ РґСЂР°С„С‚Рµ */
 }
 
 
 /* ====== DROP SHAPE (Comp1.svg) for main header button ====== */
 
-/* У main контейнера убираем круглый “glass”, потому что теперь стекло будет на .aiw-drop-shape */
+/* РЈ main РєРѕРЅС‚РµР№РЅРµСЂР° СѓР±РёСЂР°РµРј РєСЂСѓРіР»С‹Р№ вЂњglassвЂќ, РїРѕС‚РѕРјСѓ С‡С‚Рѕ С‚РµРїРµСЂСЊ СЃС‚РµРєР»Рѕ Р±СѓРґРµС‚ РЅР° .aiw-drop-shape */
 .aiw-button.aiw-button--header .aiw-hc--main{
   background: none !important;
   border: none !important;
@@ -2225,12 +1578,12 @@ flex: 0 0 auto;
     display: flex;
 }
 
-/* Визуальная капля */
+/* Р’РёР·СѓР°Р»СЊРЅР°СЏ РєР°РїР»СЏ */
 .aiw-button.aiw-button--header .aiw-hc--main .aiw-drop-shape{
   position: absolute;
   inset: 0;
 
-  /* стеклянный визуал (тот же стиль что был на .aiw-hc) */
+  /* СЃС‚РµРєР»СЏРЅРЅС‹Р№ РІРёР·СѓР°Р» (С‚РѕС‚ Р¶Рµ СЃС‚РёР»СЊ С‡С‚Рѕ Р±С‹Р» РЅР° .aiw-hc) */
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   background:
@@ -2241,17 +1594,17 @@ flex: 0 0 auto;
       rgba(255,255,255,.05) 100%);
 
 
-  /* делаем форму капли через mask */
+  /* РґРµР»Р°РµРј С„РѕСЂРјСѓ РєР°РїР»Рё С‡РµСЂРµР· mask */
   -webkit-mask: url("img/Comp1.svg") center / contain no-repeat;
   mask: url("img/Comp1.svg") center / contain no-repeat;
 
-  /* чтобы анимации были плавными */
+  /* С‡С‚РѕР±С‹ Р°РЅРёРјР°С†РёРё Р±С‹Р»Рё РїР»Р°РІРЅС‹РјРё */
   transform-origin: 50% 65%;
   will-change: transform;
   animation: aiwDropWobble 3.8s ease-in-out infinite;
 }
 
-/* Обводка (псевдо-слой), чтобы край был “чётче” */
+/* РћР±РІРѕРґРєР° (РїСЃРµРІРґРѕ-СЃР»РѕР№), С‡С‚РѕР±С‹ РєСЂР°Р№ Р±С‹Р» вЂњС‡С‘С‚С‡РµвЂќ */
 .aiw-button.aiw-button--header .aiw-hc--main .aiw-drop-shape::before{
   content:"";
   position:absolute;
@@ -2261,12 +1614,12 @@ flex: 0 0 auto;
   -webkit-mask: url("img/Comp1.svg") center / contain no-repeat;
   mask: url("img/Comp1.svg") center / contain no-repeat;
 
-  /* рисуем край через inset-shadow */
+  /* СЂРёСЃСѓРµРј РєСЂР°Р№ С‡РµСЂРµР· inset-shadow */
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
   border-radius: 0;
 }
 
-/* Иконка внутри капли */
+/* РРєРѕРЅРєР° РІРЅСѓС‚СЂРё РєР°РїР»Рё */
 .aiw-button.aiw-button--header .aiw-hc--main .aiw-drop-shape img{
   position:absolute;
   inset:0;
@@ -2277,7 +1630,7 @@ flex: 0 0 auto;
   filter: drop-shadow(0 6px 14px rgba(0,0,0,.45));
 }
 
-/* Hover эффект (теперь подсвечиваем именно каплю) */
+/* Hover СЌС„С„РµРєС‚ (С‚РµРїРµСЂСЊ РїРѕРґСЃРІРµС‡РёРІР°РµРј РёРјРµРЅРЅРѕ РєР°РїР»СЋ) */
 .aiw-button.aiw-button--header .aiw-hc--main:hover .aiw-drop-shape{
   box-shadow:
     0 18px 44px rgba(0,0,0,.55),
@@ -2292,7 +1645,7 @@ flex: 0 0 auto;
     inset 0 1px 0 rgba(255,255,255,.28);
 }
 
-/* Лёгкое “живое” дрожание капли */
+/* Р›С‘РіРєРѕРµ вЂњР¶РёРІРѕРµвЂќ РґСЂРѕР¶Р°РЅРёРµ РєР°РїР»Рё */
 @keyframes aiwDropWobble{
   0%   { transform: translateY(0) rotate(0deg) scale(1); }
   25%  { transform: translateY(-1px) rotate(-1.2deg) scale(1.01); }
@@ -2303,7 +1656,7 @@ flex: 0 0 auto;
 
 /* ====== DROP SHAPE for SIDE buttons (waiter/bill) ====== */
 
-/* убираем круглый “glass” у side контейнера — стекло будет на .aiw-drop-shape--side */
+/* СѓР±РёСЂР°РµРј РєСЂСѓРіР»С‹Р№ вЂњglassвЂќ Сѓ side РєРѕРЅС‚РµР№РЅРµСЂР° вЂ” СЃС‚РµРєР»Рѕ Р±СѓРґРµС‚ РЅР° .aiw-drop-shape--side */
 .aiw-button.aiw-button--header .aiw-hc--side{
   background: none !important;
   border: none !important;
@@ -2313,7 +1666,7 @@ flex: 0 0 auto;
   overflow: visible;
 }
 
-/* сама капля для side */
+/* СЃР°РјР° РєР°РїР»СЏ РґР»СЏ side */
 .aiw-button.aiw-button--header .aiw-hc--side .aiw-drop-shape--side{
   position: absolute;
   inset: 0;
@@ -2341,7 +1694,7 @@ flex: 0 0 auto;
   animation: aiwDropWobbleSide 4.6s ease-in-out infinite;
 }
 
-/* тонкая обводка для side */
+/* С‚РѕРЅРєР°СЏ РѕР±РІРѕРґРєР° РґР»СЏ side */
 .aiw-button.aiw-button--header .aiw-hc--side .aiw-drop-shape--side::before{
   content:"";
   position:absolute;
@@ -2354,8 +1707,8 @@ flex: 0 0 auto;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.20);
 }
 
-/* иконка внутри капли */
-/* SIDE ICONS: чисто белые, без блюра, поверх капли */
+/* РёРєРѕРЅРєР° РІРЅСѓС‚СЂРё РєР°РїР»Рё */
+/* SIDE ICONS: С‡РёСЃС‚Рѕ Р±РµР»С‹Рµ, Р±РµР· Р±Р»СЋСЂР°, РїРѕРІРµСЂС… РєР°РїР»Рё */
 .aiw-button.aiw-button--header .aiw-hc--side .aiw-drop-shape--side img.aiw-icon{
   position: absolute;
   inset: 0;
@@ -2363,26 +1716,26 @@ flex: 0 0 auto;
   width: 20px;
   height: 20px;
 
-  z-index: 5;          /* поверх капли и обводки */
+  z-index: 5;          /* РїРѕРІРµСЂС… РєР°РїР»Рё Рё РѕР±РІРѕРґРєРё */
   opacity: 1;
 
-  /* делаем любой серый/цветной SVG чисто белым */
+  /* РґРµР»Р°РµРј Р»СЋР±РѕР№ СЃРµСЂС‹Р№/С†РІРµС‚РЅРѕР№ SVG С‡РёСЃС‚Рѕ Р±РµР»С‹Рј */
   filter: brightness(0) invert(1) contrast(1.15);
 
-  /* “как поверх стекла” — лёгкий контрастный ореол (НЕ blur) */
+  /* вЂњРєР°Рє РїРѕРІРµСЂС… СЃС‚РµРєР»Р°вЂќ вЂ” Р»С‘РіРєРёР№ РєРѕРЅС‚СЂР°СЃС‚РЅС‹Р№ РѕСЂРµРѕР» (РќР• blur) */
   -webkit-filter: brightness(0) invert(1) contrast(1.15)
     drop-shadow(0 2px 6px rgba(0,0,0,.45));
   filter: brightness(0) invert(1) contrast(1.15)
     drop-shadow(0 2px 6px rgba(0,0,0,.45));
 
-  /* чтобы не было странных блендов */
+  /* С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ СЃС‚СЂР°РЅРЅС‹С… Р±Р»РµРЅРґРѕРІ */
   mix-blend-mode: normal;
   transform: translateZ(0);
-  pointer-events: none; /* кликаем по кнопке, не по img */
+  pointer-events: none; /* РєР»РёРєР°РµРј РїРѕ РєРЅРѕРїРєРµ, РЅРµ РїРѕ img */
 }
 
 
-/* hover подсветка side */
+/* hover РїРѕРґСЃРІРµС‚РєР° side */
 .aiw-button.aiw-button--header .aiw-hc--side:hover .aiw-drop-shape--side{
   box-shadow:
     0 16px 38px rgba(0,0,0,.52),
@@ -2390,7 +1743,7 @@ flex: 0 0 auto;
     inset 0 1px 0 rgba(255,255,255,.28);
 }
 
-/* чуть более спокойное “живое” дрожание для side */
+/* С‡СѓС‚СЊ Р±РѕР»РµРµ СЃРїРѕРєРѕР№РЅРѕРµ вЂњР¶РёРІРѕРµвЂќ РґСЂРѕР¶Р°РЅРёРµ РґР»СЏ side */
 @keyframes aiwDropWobbleSide{
   0%   { transform: translateY(0) rotate(0deg) scale(1); }
   30%  { transform: translateY(-0.6px) rotate(-1deg) scale(1.008); }
@@ -2451,23 +1804,23 @@ flex: 0 0 auto;
     document.head.appendChild(style);
   }
 
-  // ---------- UI: чат и кнопка + DRAGGABLE ----------
+  // ---------- UI: С‡Р°С‚ Рё РєРЅРѕРїРєР° + DRAGGABLE ----------
 
   let chatRoot = null;
 
   function createButtonAndChat() {
     const headerMount = document.querySelector("#top");
     const mountInHeader = !!headerMount;
-    // Кнопка
+    // РљРЅРѕРїРєР°
     const btn = document.createElement("div");
     btn.className = "aiw-button";
     
 
-    // вместо textContent = '' кладём HTML с внутренними слоями капли
+    // РІРјРµСЃС‚Рѕ textContent = '' РєР»Р°РґС‘Рј HTML СЃ РІРЅСѓС‚СЂРµРЅРЅРёРјРё СЃР»РѕСЏРјРё РєР°РїР»Рё
     btn.innerHTML = `
 `;
 
-    // Чат
+    // Р§Р°С‚
     const chat = document.createElement("div");
     chat.className = "aiw-chat";
     chat.style.display = "none";
@@ -2481,7 +1834,7 @@ flex: 0 0 auto;
   </div>
 `;
 
-    // --- Header controls “drops” move: move .aiw-header-wrap into chat header on open, back on close ---
+    // --- Header controls вЂњdropsвЂќ move: move .aiw-header-wrap into chat header on open, back on close ---
     const headerSlot = header.querySelector(".aiw-chat-launcher-host");
 
     let headerWrapEl = null; // .aiw-header-wrap node
@@ -2540,7 +1893,7 @@ flex: 0 0 auto;
     msgs.className = "aiw-chat-messages";
     messagesEl = msgs;
 
-    // --- Mini-cart (under header / “drops”) ---
+    // --- Mini-cart (under header / вЂњdropsвЂќ) ---
     const miniCart = document.createElement("div");
     miniCart.className = "aiw-mini-cart aiw-mini-cart--empty";
     miniCart.innerHTML = `
@@ -2570,7 +1923,7 @@ flex: 0 0 auto;
   </div>
   <button type="button" class="aiw-cart-close" aria-label="${
     UI_TEXTS.cart_close_aria || "Close"
-  }">×</button>
+  }">Г—</button>
 </div>
 
     <div class="aiw-cart-list"></div>
@@ -2728,14 +2081,14 @@ flex: 0 0 auto;
             operation,
           );
           if (updatedDraft) {
-            // 1) всегда синкаем глобальный draft
+            // 1) РІСЃРµРіРґР° СЃРёРЅРєР°РµРј РіР»РѕР±Р°Р»СЊРЅС‹Р№ draft
             lastOrderDraft = updatedDraft;
 
-            // 2) если есть "сообщение-драфт" в чате — обновим его
+            // 2) РµСЃР»Рё РµСЃС‚СЊ "СЃРѕРѕР±С‰РµРЅРёРµ-РґСЂР°С„С‚" РІ С‡Р°С‚Рµ вЂ” РѕР±РЅРѕРІРёРј РµРіРѕ
             if (lastOrderDraftEl && lastOrderDraftEl.isConnected) {
               rerenderOrderDraftElement(lastOrderDraftEl, updatedDraft);
             } else {
-              // 3) иначе это сценарий recommendations/mini-cart → перерисовываем UI напрямую
+              // 3) РёРЅР°С‡Рµ СЌС‚Рѕ СЃС†РµРЅР°СЂРёР№ recommendations/mini-cart в†’ РїРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј UI РЅР°РїСЂСЏРјСѓСЋ
               const nd =
                 updatedDraft &&
                 Array.isArray(updatedDraft.items) &&
@@ -2814,7 +2167,7 @@ flex: 0 0 auto;
             "Content-Type": "application/json",
             "x-session-token": sessionToken,
           },
-          // тело не обязательно, но пусть будет (на будущее)
+          // С‚РµР»Рѕ РЅРµ РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ, РЅРѕ РїСѓСЃС‚СЊ Р±СѓРґРµС‚ (РЅР° Р±СѓРґСѓС‰РµРµ)
           body: JSON.stringify({}),
           credentials: "include",
         });
@@ -2893,7 +2246,7 @@ flex: 0 0 auto;
     quickSend.addEventListener("click", async () => {
       if (!pendingQuickAction) return;
 
-      // защита от двойного клика
+      // Р·Р°С‰РёС‚Р° РѕС‚ РґРІРѕР№РЅРѕРіРѕ РєР»РёРєР°
       quickSend.disabled = true;
       quickCancel.disabled = true;
 
@@ -2930,10 +2283,10 @@ flex: 0 0 auto;
       }
     });
 
-    // --- Блок подсказок блюд над полем ввода ---
+    // --- Р‘Р»РѕРє РїРѕРґСЃРєР°Р·РѕРє Р±Р»СЋРґ РЅР°Рґ РїРѕР»РµРј РІРІРѕРґР° ---
     const suggestionsEl = document.createElement("div");
     suggestionsEl.className = "aiw-suggestions";
-    // по умолчанию скрыт
+    // РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ СЃРєСЂС‹С‚
     suggestionsEl.style.display = "none";
 
     const inputWrap = document.createElement("div");
@@ -2974,7 +2327,7 @@ function bindMobileKeyboardFix(chatEl) {
   vv.addEventListener("resize", apply);
   vv.addEventListener("scroll", apply);
 
-  // iOS sometimes fires later — call once now
+  // iOS sometimes fires later вЂ” call once now
   apply();
 
   // Also re-apply when focusing/blur input (extra stability)
@@ -3004,23 +2357,23 @@ function bindMobileKeyboardFix(chatEl) {
     sendBtn.textContent = "";
     sendBtn.className = "aiw-send-button";
 
-    // ---- Отправка сообщений ----
+    // ---- РћС‚РїСЂР°РІРєР° СЃРѕРѕР±С‰РµРЅРёР№ ----
     async function handleSend() {
       const text = input.value.trim();
       if (!text) return;
       input.value = "";
 
-      // 🔹 Скрыть подсказки, когда сообщение ушло
+      // рџ”№ РЎРєСЂС‹С‚СЊ РїРѕРґСЃРєР°Р·РєРё, РєРѕРіРґР° СЃРѕРѕР±С‰РµРЅРёРµ СѓС€Р»Рѕ
       renderSuggestions([]);
 
-      // это текст с клавиатуры
+      // СЌС‚Рѕ С‚РµРєСЃС‚ СЃ РєР»Р°РІРёР°С‚СѓСЂС‹
       lastRequestFromVoice = false;
 
       appendUserMessage(text);
       await sendMessageToBackend(text);
     }
 
-    // Когда получили текст из ASR — считаем, что запрос пришёл "с голоса"
+    // РљРѕРіРґР° РїРѕР»СѓС‡РёР»Рё С‚РµРєСЃС‚ РёР· ASR вЂ” СЃС‡РёС‚Р°РµРј, С‡С‚Рѕ Р·Р°РїСЂРѕСЃ РїСЂРёС€С‘Р» "СЃ РіРѕР»РѕСЃР°"
     async function handleRecognizedText(text) {
       input.value = text;
       lastRequestFromVoice = true;
@@ -3062,7 +2415,7 @@ function bindMobileKeyboardFix(chatEl) {
           ? logoEl.getBoundingClientRect()
           : headerMount.getBoundingClientRect();
 
-        // size: чуть больше лого, чтобы капля точно покрывала круг
+        // size: С‡СѓС‚СЊ Р±РѕР»СЊС€Рµ Р»РѕРіРѕ, С‡С‚РѕР±С‹ РєР°РїР»СЏ С‚РѕС‡РЅРѕ РїРѕРєСЂС‹РІР°Р»Р° РєСЂСѓРі
         let size = (logoRect.height || 80) * 1.35;
         size = Math.max(SIZE_MIN, Math.min(size, SIZE_MAX));
 
@@ -3084,22 +2437,22 @@ function bindMobileKeyboardFix(chatEl) {
       // initial
       sync();
 
-      // важно: scroll + resize
+      // РІР°Р¶РЅРѕ: scroll + resize
       window.addEventListener("scroll", requestSync, { passive: true });
       window.addEventListener("resize", requestSync);
 
-      // если DOM внутри хедера меняется по высоте/ширине
+      // РµСЃР»Рё DOM РІРЅСѓС‚СЂРё С…РµРґРµСЂР° РјРµРЅСЏРµС‚СЃСЏ РїРѕ РІС‹СЃРѕС‚Рµ/С€РёСЂРёРЅРµ
       try {
         const ro = new ResizeObserver(requestSync);
         ro.observe(headerMount);
       } catch (e) {}
 
-      // на всякий случай: когда картинки загрузились
+      // РЅР° РІСЃСЏРєРёР№ СЃР»СѓС‡Р°Р№: РєРѕРіРґР° РєР°СЂС‚РёРЅРєРё Р·Р°РіСЂСѓР·РёР»РёСЃСЊ
       window.addEventListener("load", requestSync);
     }
 
-    // Проиграть 1 раз анимацию "вытекающих" капель при загрузке страницы.
-    // Важно: НЕ привязано к toggleChat(), поэтому не повторяется при открытии/закрытии чата.
+    // РџСЂРѕРёРіСЂР°С‚СЊ 1 СЂР°Р· Р°РЅРёРјР°С†РёСЋ "РІС‹С‚РµРєР°СЋС‰РёС…" РєР°РїРµР»СЊ РїСЂРё Р·Р°РіСЂСѓР·РєРµ СЃС‚СЂР°РЅРёС†С‹.
+    // Р’Р°Р¶РЅРѕ: РќР• РїСЂРёРІСЏР·Р°РЅРѕ Рє toggleChat(), РїРѕСЌС‚РѕРјСѓ РЅРµ РїРѕРІС‚РѕСЂСЏРµС‚СЃСЏ РїСЂРё РѕС‚РєСЂС‹С‚РёРё/Р·Р°РєСЂС‹С‚РёРё С‡Р°С‚Р°.
     function playHeaderDropSplashOnce(btn) {
       if (!btn) return;
       if (btn.dataset.aiwSplashPlayed === "1") return;
@@ -3108,10 +2461,10 @@ function bindMobileKeyboardFix(chatEl) {
       const topBtn = btn.querySelector(".aiw-side-btn--top");
       const bottomBtn = btn.querySelector(".aiw-side-btn--bottom");
 
-      // fallback если кнопок нет
+      // fallback РµСЃР»Рё РєРЅРѕРїРѕРє РЅРµС‚
       if (!topBtn || !bottomBtn) return;
 
-      // 1) Если GSAP доступен — делаем реально плавно
+      // 1) Р•СЃР»Рё GSAP РґРѕСЃС‚СѓРїРµРЅ вЂ” РґРµР»Р°РµРј СЂРµР°Р»СЊРЅРѕ РїР»Р°РІРЅРѕ
       if (window.gsap) {
         window.gsap.set([topBtn, bottomBtn], {
           opacity: 0,
@@ -3123,7 +2476,7 @@ function bindMobileKeyboardFix(chatEl) {
 
         const tl = window.gsap.timeline();
 
-        // верхняя
+        // РІРµСЂС…РЅСЏСЏ
         tl.to(
           topBtn,
           {
@@ -3169,7 +2522,7 @@ function bindMobileKeyboardFix(chatEl) {
           0.46,
         );
 
-        // нижняя — с задержкой как “клеточное деление”
+        // РЅРёР¶РЅСЏСЏ вЂ” СЃ Р·Р°РґРµСЂР¶РєРѕР№ РєР°Рє вЂњРєР»РµС‚РѕС‡РЅРѕРµ РґРµР»РµРЅРёРµвЂќ
         tl.to(
           bottomBtn,
           {
@@ -3218,13 +2571,13 @@ function bindMobileKeyboardFix(chatEl) {
         return;
       }
 
-      // 2) Иначе — CSS fallback через класс (на всякий)
+      // 2) РРЅР°С‡Рµ вЂ” CSS fallback С‡РµСЂРµР· РєР»Р°СЃСЃ (РЅР° РІСЃСЏРєРёР№)
       btn.classList.add("aiw-side-splash");
       setTimeout(() => btn.classList.remove("aiw-side-splash"), 1100);
     }
 
     function isHighPerfOkForHQ() {
-      // 1) user prefers reduced motion → выключаем
+      // 1) user prefers reduced motion в†’ РІС‹РєР»СЋС‡Р°РµРј
       try {
         if (
           window.matchMedia &&
@@ -3233,16 +2586,16 @@ function bindMobileKeyboardFix(chatEl) {
           return false;
       } catch (e) {}
 
-      // 2) если девайс реально слабый (мало потоков) → выключаем
+      // 2) РµСЃР»Рё РґРµРІР°Р№СЃ СЂРµР°Р»СЊРЅРѕ СЃР»Р°Р±С‹Р№ (РјР°Р»Рѕ РїРѕС‚РѕРєРѕРІ) в†’ РІС‹РєР»СЋС‡Р°РµРј
       const cores = navigator.hardwareConcurrency || 0;
-      // 4 ядра тоже ок для HQ на многих девайсах
+      // 4 СЏРґСЂР° С‚РѕР¶Рµ РѕРє РґР»СЏ HQ РЅР° РјРЅРѕРіРёС… РґРµРІР°Р№СЃР°С…
       if (cores && cores < 4) return false;
 
-      // 3) deviceMemory не везде есть (Safari часто undefined)
+      // 3) deviceMemory РЅРµ РІРµР·РґРµ РµСЃС‚СЊ (Safari С‡Р°СЃС‚Рѕ undefined)
       const mem = navigator.deviceMemory || 0;
       if (mem && mem < 4) return false;
 
-      // 4) старые браузеры / без Web Animations вообще — тоже выключим
+      // 4) СЃС‚Р°СЂС‹Рµ Р±СЂР°СѓР·РµСЂС‹ / Р±РµР· Web Animations РІРѕРѕР±С‰Рµ вЂ” С‚РѕР¶Рµ РІС‹РєР»СЋС‡РёРј
       if (!("animate" in document.documentElement)) return false;
 
       return true;
@@ -3301,8 +2654,8 @@ function bindMobileKeyboardFix(chatEl) {
 
       if (!isHighPerfOkForHQ()) return;
 
-      // GSAP CDN (можно заменить на свой хостинг)
-      // Важно: URL держим в коде, как ты и просил “с библиотеками”.
+      // GSAP CDN (РјРѕР¶РЅРѕ Р·Р°РјРµРЅРёС‚СЊ РЅР° СЃРІРѕР№ С…РѕСЃС‚РёРЅРі)
+      // Р’Р°Р¶РЅРѕ: URL РґРµСЂР¶РёРј РІ РєРѕРґРµ, РєР°Рє С‚С‹ Рё РїСЂРѕСЃРёР» вЂњСЃ Р±РёР±Р»РёРѕС‚РµРєР°РјРёвЂќ.
       const GSAP_URL =
         "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js";
 
@@ -3325,7 +2678,7 @@ function bindMobileKeyboardFix(chatEl) {
 
       if (!main || !bridge || !top || !bottom) return;
 
-      // Старт: дочерние внутри “материнской” клетки
+      // РЎС‚Р°СЂС‚: РґРѕС‡РµСЂРЅРёРµ РІРЅСѓС‚СЂРё вЂњРјР°С‚РµСЂРёРЅСЃРєРѕР№вЂќ РєР»РµС‚РєРё
       window.gsap.set([top, bottom], {
         opacity: 0,
         scale: 0.55,
@@ -3339,20 +2692,20 @@ function bindMobileKeyboardFix(chatEl) {
         defaults: { ease: "power2.out" },
       });
 
-      // 1) “подготовка” — клетка чуть “надулась”
+      // 1) вЂњРїРѕРґРіРѕС‚РѕРІРєР°вЂќ вЂ” РєР»РµС‚РєР° С‡СѓС‚СЊ вЂњРЅР°РґСѓР»Р°СЃСЊвЂќ
       tl.to(main, { scale: 1.03, duration: 0.18 });
 
-      // 2) появляются дочерние + мостик
+      // 2) РїРѕСЏРІР»СЏСЋС‚СЃСЏ РґРѕС‡РµСЂРЅРёРµ + РјРѕСЃС‚РёРє
       tl.to([top, bottom], { opacity: 1, duration: 0.1 }, "<0.02");
       tl.to(bridge, { opacity: 1, scaleX: 0.95, duration: 0.18 }, "<");
 
-      // 3) “перетяжка” и отслоение: дочерние выдавливаются наружу, мостик тянется
-      // (GSAP лучше делает это плавно, чем CSS)
+      // 3) вЂњРїРµСЂРµС‚СЏР¶РєР°вЂќ Рё РѕС‚СЃР»РѕРµРЅРёРµ: РґРѕС‡РµСЂРЅРёРµ РІС‹РґР°РІР»РёРІР°СЋС‚СЃСЏ РЅР°СЂСѓР¶Сѓ, РјРѕСЃС‚РёРє С‚СЏРЅРµС‚СЃСЏ
+      // (GSAP Р»СѓС‡С€Рµ РґРµР»Р°РµС‚ СЌС‚Рѕ РїР»Р°РІРЅРѕ, С‡РµРј CSS)
       tl.to(
         top,
         {
           duration: 0.42,
-          x: 72, // “вылезают” вправо
+          x: 72, // вЂњРІС‹Р»РµР·Р°СЋС‚вЂќ РІРїСЂР°РІРѕ
           yPercent: -50,
           scale: 1.02,
         },
@@ -3376,7 +2729,7 @@ function bindMobileKeyboardFix(chatEl) {
         "<",
       );
 
-      // 4) “разделение” — мостик резко тоньше и исчезает
+      // 4) вЂњСЂР°Р·РґРµР»РµРЅРёРµвЂќ вЂ” РјРѕСЃС‚РёРє СЂРµР·РєРѕ С‚РѕРЅСЊС€Рµ Рё РёСЃС‡РµР·Р°РµС‚
       tl.to(
         bridge,
         { duration: 0.18, scaleX: 0.35, opacity: 0.45, ease: "power2.in" },
@@ -3389,8 +2742,8 @@ function bindMobileKeyboardFix(chatEl) {
         ease: "power2.in",
       });
 
-      // 5) settle: дочерние “встали” на места (совпадают с кнопками)
-      // Мы не анимируем left/top (дорого). Делаем translate: финальная x отталкивается от текущей позиции контейнера.
+      // 5) settle: РґРѕС‡РµСЂРЅРёРµ вЂњРІСЃС‚Р°Р»РёвЂќ РЅР° РјРµСЃС‚Р° (СЃРѕРІРїР°РґР°СЋС‚ СЃ РєРЅРѕРїРєР°РјРё)
+      // РњС‹ РЅРµ Р°РЅРёРјРёСЂСѓРµРј left/top (РґРѕСЂРѕРіРѕ). Р”РµР»Р°РµРј translate: С„РёРЅР°Р»СЊРЅР°СЏ x РѕС‚С‚Р°Р»РєРёРІР°РµС‚СЃСЏ РѕС‚ С‚РµРєСѓС‰РµР№ РїРѕР·РёС†РёРё РєРѕРЅС‚РµР№РЅРµСЂР°.
       tl.to(
         top,
         { duration: 0.22, scale: 1.0, x: 88, ease: "power2.out" },
@@ -3402,14 +2755,14 @@ function bindMobileKeyboardFix(chatEl) {
         "<0.02",
       );
 
-      // 6) материнская слегка “успокоилась”
+      // 6) РјР°С‚РµСЂРёРЅСЃРєР°СЏ СЃР»РµРіРєР° вЂњСѓСЃРїРѕРєРѕРёР»Р°СЃСЊвЂќ
       tl.to(main, { scale: 1.0, duration: 0.18 }, "<0.08");
 
-      // Всё.
+      // Р’СЃС‘.
     }
 
     // ---- Mount ----
-    // Чат остаётся в body (fixed-панель). Launcher: в #top если есть, иначе плавающий.
+    // Р§Р°С‚ РѕСЃС‚Р°С‘С‚СЃСЏ РІ body (fixed-РїР°РЅРµР»СЊ). Launcher: РІ #top РµСЃР»Рё РµСЃС‚СЊ, РёРЅР°С‡Рµ РїР»Р°РІР°СЋС‰РёР№.
     if (mountInHeader) {
       const computed = window.getComputedStyle(headerMount);
       if (!computed.position || computed.position === "static") {
@@ -3438,13 +2791,13 @@ function bindMobileKeyboardFix(chatEl) {
       const waiterCircle = btn.querySelector(".aiw-hc--waiter");
       const billCircle = btn.querySelector(".aiw-hc--bill");
 
-      // Capture the “drops” wrapper so we can physically move it into the chat header
+      // Capture the вЂњdropsвЂќ wrapper so we can physically move it into the chat header
       headerWrapEl = btn.querySelector(".aiw-header-wrap");
       headerWrapHome = btn;
 
       const openChat = (e) => {
         if (e) e.stopPropagation();
-        toggleChat(true); // гарантированно открыть
+        toggleChat(true); // РіР°СЂР°РЅС‚РёСЂРѕРІР°РЅРЅРѕ РѕС‚РєСЂС‹С‚СЊ
       };
 /*
       mainCircle.addEventListener("click", (e) => {
@@ -3458,8 +2811,8 @@ function bindMobileKeyboardFix(chatEl) {
         else toggleChat(true);
       });
 
-      // В header-режиме НЕ вешаем btn.click -> toggleChat,
-      // иначе будет двойной клик и глюки с ретаргетом событий.
+      // Р’ header-СЂРµР¶РёРјРµ РќР• РІРµС€Р°РµРј btn.click -> toggleChat,
+      // РёРЅР°С‡Рµ Р±СѓРґРµС‚ РґРІРѕР№РЅРѕР№ РєР»РёРє Рё РіР»СЋРєРё СЃ СЂРµС‚Р°СЂРіРµС‚РѕРј СЃРѕР±С‹С‚РёР№.
 
       waiterCircle.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -3497,7 +2850,7 @@ function bindMobileKeyboardFix(chatEl) {
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
 
-        // переходим на left/top, чтобы считать от окна
+        // РїРµСЂРµС…РѕРґРёРј РЅР° left/top, С‡С‚РѕР±С‹ СЃС‡РёС‚Р°С‚СЊ РѕС‚ РѕРєРЅР°
         btn.style.left = rect.left + "px";
         btn.style.top = rect.top + "px";
         btn.style.right = "auto";
@@ -3525,7 +2878,7 @@ function bindMobileKeyboardFix(chatEl) {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
 
-        // ограничиваем в пределах окна
+        // РѕРіСЂР°РЅРёС‡РёРІР°РµРј РІ РїСЂРµРґРµР»Р°С… РѕРєРЅР°
         const maxLeft = vw - btnRect.width;
         const maxTop = vh - btnRect.height;
 
@@ -3540,7 +2893,7 @@ function bindMobileKeyboardFix(chatEl) {
         if (!isPointerDown) return;
         btn.releasePointerCapture(e.pointerId);
 
-        // если не тащили — это клик
+        // РµСЃР»Рё РЅРµ С‚Р°С‰РёР»Рё вЂ” СЌС‚Рѕ РєР»РёРє
         if (!isDragging) {
           toggleChat();
         }
@@ -3549,7 +2902,7 @@ function bindMobileKeyboardFix(chatEl) {
         isDragging = false;
       });
     } else {
-      // В хедере — обычный клик
+      // Р’ С…РµРґРµСЂРµ вЂ” РѕР±С‹С‡РЅС‹Р№ РєР»РёРє
     }
 
     let __aiwScrollY = 0;
@@ -3576,7 +2929,7 @@ function applyMobileFullscreen(chatEl, enabled) {
   chatEl.style.inset = "0";
   chatEl.style.width = "100%";
   chatEl.style.maxWidth = "100%";
-  chatEl.style.height = `${h}px`;      // важнее чем 100vh в iOS webview
+  chatEl.style.height = `${h}px`;      // РІР°Р¶РЅРµРµ С‡РµРј 100vh РІ iOS webview
   chatEl.style.maxHeight = "none";
   chatEl.style.borderRadius = "0";
 }
@@ -3595,7 +2948,7 @@ function unlockPageScroll() {
   window.scrollTo(0, y);
 }
 
-    // ---- Открытие/закрытие чата ----
+    // ---- РћС‚РєСЂС‹С‚РёРµ/Р·Р°РєСЂС‹С‚РёРµ С‡Р°С‚Р° ----
     window.toggleChat = function (forceOpen) {
       // Was chat already open before this call?
       const wasOpen = chat.style.display !== "none";
@@ -3627,7 +2980,7 @@ function unlockPageScroll() {
 
       const isMobile =
         (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-        vw <= 820; // �����, ������ ��� WebView/scale ����� ������ �������� �����
+        vw <= 820; // запас, потому что WebView/scale может давать странные числа
 
       if (isMobile) {
         if (shouldOpen) {
@@ -3763,15 +3116,15 @@ if (shouldOpen) {
         card.addEventListener("click", () => {
           const suggestionText = item.name || item.item_code || "";
 
-          // Текущий текст в инпуте
+          // РўРµРєСѓС‰РёР№ С‚РµРєСЃС‚ РІ РёРЅРїСѓС‚Рµ
           const current = input.value || "";
 
           let next;
           if (!current.trim()) {
-            // Если инпут пустой — просто подставляем подсказку
+            // Р•СЃР»Рё РёРЅРїСѓС‚ РїСѓСЃС‚РѕР№ вЂ” РїСЂРѕСЃС‚Рѕ РїРѕРґСЃС‚Р°РІР»СЏРµРј РїРѕРґСЃРєР°Р·РєСѓ
             next = suggestionText;
           } else {
-            // Если уже есть текст — аккуратно добавляем через пробел
+            // Р•СЃР»Рё СѓР¶Рµ РµСЃС‚СЊ С‚РµРєСЃС‚ вЂ” Р°РєРєСѓСЂР°С‚РЅРѕ РґРѕР±Р°РІР»СЏРµРј С‡РµСЂРµР· РїСЂРѕР±РµР»
             const needsSpace = !current.endsWith(" ");
             next = current + (needsSpace ? " " : "") + suggestionText;
           }
@@ -3784,7 +3137,7 @@ if (shouldOpen) {
             input.setSelectionRange(len, len);
           }
 
-          // Скрываем подсказки после выбора (по желанию)
+          // РЎРєСЂС‹РІР°РµРј РїРѕРґСЃРєР°Р·РєРё РїРѕСЃР»Рµ РІС‹Р±РѕСЂР° (РїРѕ Р¶РµР»Р°РЅРёСЋ)
           renderSuggestions([]);
         });
 
@@ -3802,7 +3155,7 @@ if (shouldOpen) {
       }
 
       if (!sessionToken) {
-        // без сессии подсказки не работаем (нужен restaurant_id)
+        // Р±РµР· СЃРµСЃСЃРёРё РїРѕРґСЃРєР°Р·РєРё РЅРµ СЂР°Р±РѕС‚Р°РµРј (РЅСѓР¶РµРЅ restaurant_id)
         renderSuggestions([]);
         return;
       }
@@ -3847,7 +3200,7 @@ if (shouldOpen) {
 
     const debouncedSuggest = debounce(fetchSuggestionsForQuery, 250);
 
-    // ---- Отправка сообщений ----
+    // ---- РћС‚РїСЂР°РІРєР° СЃРѕРѕР±С‰РµРЅРёР№ ----
 
     sendBtn.addEventListener("click", handleSend);
     input.addEventListener("keydown", (e) => {
@@ -3857,7 +3210,7 @@ if (shouldOpen) {
       }
     });
 
-    // 👉 ВОТ ЭТО ДОБАВЛЯЕМ ДЛЯ ПОДСКАЗОК
+    // рџ‘‰ Р’РћРў Р­РўРћ Р”РћР‘РђР’Р›РЇР•Рњ Р”Р›РЇ РџРћР”РЎРљРђР—РћРљ
   }
 
   async function playAssistantTTS(text) {
@@ -3870,7 +3223,7 @@ if (shouldOpen) {
         credentials: "include",
         body: JSON.stringify({
           text,
-          voice: "alloy", // потом можно сделать настройкой
+          voice: "alloy", // РїРѕС‚РѕРј РјРѕР¶РЅРѕ СЃРґРµР»Р°С‚СЊ РЅР°СЃС‚СЂРѕР№РєРѕР№
         }),
       });
 
@@ -3888,7 +3241,7 @@ if (shouldOpen) {
     }
   }
 
-  // ---------- Отправка запросов в backend ----------
+  // ---------- РћС‚РїСЂР°РІРєР° Р·Р°РїСЂРѕСЃРѕРІ РІ backend ----------
 
   async function sendMessageToBackend(message) {
     if (!sessionToken) {
@@ -3914,7 +3267,7 @@ if (shouldOpen) {
 
       if (!res.ok) {
         console.error("Chat request failed", await res.text());
-        appendSystemMessage("Помилка при зверненні до AI-офіціанта.");
+        appendSystemMessage("Помилка при надсиланні повідомлення до AI-офіціанта.");
         return;
       }
 
@@ -3950,15 +3303,15 @@ if (shouldOpen) {
           playAssistantTTS(replyText);
         }
       } else {
-        appendSystemMessage("Сервер відповів без тексту.");
+        appendSystemMessage("Сервер не відповів текстом.");
       }
 
-      // Отдельное сообщение для апселла, если он есть
+      // РћС‚РґРµР»СЊРЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РґР»СЏ Р°РїСЃРµР»Р»Р°, РµСЃР»Рё РѕРЅ РµСЃС‚СЊ
       if (upsell && Array.isArray(upsell.items) && upsell.items.length > 0) {
         appendUpsellMessage(upsell);
       }
 
-      // cart-first UX: if backend explicitly returned draft (even empty) — sync mini-cart
+      // cart-first UX: if backend explicitly returned draft (even empty) вЂ” sync mini-cart
             if (Object.prototype.hasOwnProperty.call(data, "orderDraft")) {
         const d0 = data.orderDraft || null;
         const d1 = normalizeOrderDraftImages(d0);
@@ -3971,7 +3324,7 @@ if (shouldOpen) {
       }
     } catch (err) {
       console.error("Error in sendMessageToBackend", err);
-      appendSystemMessage("Сталася мережна помилка.");
+      appendSystemMessage("Помилка при надсиланні повідомлення до AI-офіціанта.");
     }
   }
 
@@ -4033,7 +3386,7 @@ if (shouldOpen) {
         }
 
         console.error("UI update failed", errObj || raw);
-        appendSystemMessage("Не вдалося оновити замовлення.");
+        appendSystemMessage("Помилка при оновленні замовлення.");
         return null;
       }
 
@@ -4045,7 +3398,7 @@ if (shouldOpen) {
       const d1 = normalizeOrderDraftImages(d0);
       const d = mergeOrderDraftPreservingMedia(lastOrderDraft, d1);
 
-      // If backend returned upsell on UI update — show it as separate bot message.
+      // If backend returned upsell on UI update вЂ” show it as separate bot message.
       const upsell = data.upsell || null;
       if (upsell && Array.isArray(upsell.items) && upsell.items.length > 0) {
         rememberImagesFromList(upsell.items);
@@ -4055,7 +3408,7 @@ if (shouldOpen) {
       return d;
     } catch (err) {
       console.error("Error in callOrderUiUpdate", err);
-      appendSystemMessage("Сталася помилка при оновленні замовлення.");
+      appendSystemMessage("Помилка при оновленні замовлення.");
       return null;
     } finally {
       if (dedupeKey !== "unknown:") __aiwUiUpdateInFlight.delete(dedupeKey);
@@ -4083,7 +3436,7 @@ if (shouldOpen) {
 
       if (!res.ok) {
         console.error("Order submit failed", await res.text());
-        appendSystemMessage("Не вдалося відправити замовлення офіціанту.");
+        appendSystemMessage("Помилка при відправленні замовлення офіціанту.");
         return null;
       }
 
@@ -4091,7 +3444,7 @@ if (shouldOpen) {
       return data;
     } catch (err) {
       console.error("Error in callOrderSubmit", err);
-      appendSystemMessage("Сталася помилка при відправці замовлення.");
+      appendSystemMessage("Помилка при відправленні замовлення офіціанту.");
       return null;
     }
   }
@@ -4130,7 +3483,7 @@ if (shouldOpen) {
     submitBtn.className = "aiw-order-submit";
     submitBtn.innerHTML =
       '<span class="aiw-draft-submit-icon" aria-hidden="true"></span>';
-    submitBtn.title = "Перейти в кошик (підтвердження та відправка — там)";
+    submitBtn.title = "Перейти в кошик (підтвердження та відправка — таємно)";
 
     submitBtn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -4156,7 +3509,7 @@ if (shouldOpen) {
     if (typeof renderCartOverlay === "function") renderCartOverlay(orderDraft);
   }
 
-  // ---------- Инициализация ----------
+  // ---------- РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ ----------
 
   async function init() {
     createStyles();

@@ -3,7 +3,7 @@ import { query } from '../db.js';
 
 /**
  * Создать новую сессию
- * (используется dev-start)
+ * (используется для создания клиентских сессий)
  */
 export async function insertSession({ id, deviceId, restaurantId, tableId, expiresAt }) {
   const res = await query(

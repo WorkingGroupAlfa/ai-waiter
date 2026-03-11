@@ -141,7 +141,7 @@ export async function verifyQrAndCreateSession({
   // Помечаем токен как использованный
   await markQrTokenUsed(qrToken);
 
-  // Создаём сессию так же, как в dev-start, но с TTL 2 часа
+  // Создаём обычную QR-сессию с TTL 2 часа
   const sessionId = uuidv4();
   const sessionExpiresAt = new Date(now.getTime() + sessionTtlHours * 60 * 60 * 1000);
 

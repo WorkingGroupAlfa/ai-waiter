@@ -1,36 +1,9 @@
 // src/routes/sessionRoutes.js
 import express from 'express';
-import { startDevSession, getSessionByToken } from '../services/sessionService.js';
+import { getSessionByToken } from '../services/sessionService.js';
 import { getDeviceProfile } from '../services/deviceProfileService.js';
 
 export const sessionRouter = express.Router();
-
-/**
- * DEV-эндпоинт для старта сессии без QR.
- * POST /api/v1/session/dev-start
- * body: { restaurant_id, table_id }
- */
-sessionRouter.post('/dev-start', async (req, res) => {
-  try {
-    const { restaurant_id, table_id } = req.body;
-    const deviceId = req.deviceId;
-
-    if (!restaurant_id || !table_id) {
-      return res.status(400).json({ error: 'restaurant_id and table_id are required' });
-    }
-
-    const payload = await startDevSession({
-      restaurantId: restaurant_id,
-      tableId: table_id,
-      deviceId,
-    });
-
-    return res.json(payload);
-  } catch (err) {
-    console.error('Error creating session', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
 
 /**
  * GET /api/v1/session/me
