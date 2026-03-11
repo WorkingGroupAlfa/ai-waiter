@@ -1,4 +1,4 @@
-import { translateText } from '../ai/translationService.js';
+import { translateMenuItemName, translateText } from '../ai/translationService.js';
 
 function normalizeLang(lang) {
   const raw = String(lang || 'en').trim().toLowerCase();
@@ -70,6 +70,7 @@ function unmaskProtectedTerms(text, replacements = []) {
 }
 
 const translationCache = new Map();
+const menuNameTranslationCache = new Map();
 
 async function translateTextRuntime(text, lang, protectedTerms = [], translateTextFn = translateText) {
   const original = asText(text);
@@ -93,29 +94,73 @@ async function translateTextRuntime(text, lang, protectedTerms = [], translateTe
   return translated;
 }
 
+async function translateMenuItemNameRuntime(
+  text,
+  lang,
+  translateMenuItemNameFn = translateMenuItemName
+) {
+  const original = asText(text);
+  if (!original) return '';
+
+  const cacheKey = `${lang}::menu-name::${original}`;
+  if (menuNameTranslationCache.has(cacheKey)) return menuNameTranslationCache.get(cacheKey);
+
+  let translated = original;
+  try {
+    translated = asText(await translateMenuItemNameFn(original, lang, null)) || original;
+  } catch (err) {
+    console.error('[runtimeUiLocalization] translateMenuItemNameRuntime failed', err);
+    translated = original;
+  }
+
+  menuNameTranslationCache.set(cacheKey, translated);
+  return translated;
+}
+
+function collectMenuItemRefs({ orderDraft, upsell, recommendations }) {
+  const refs = [];
+  const pushRefs = (kind, items = []) => {
+    items.forEach((item, index) => {
+      if (!item || typeof item !== 'object') return;
+      const rawName = getItemName(item);
+      if (!rawName) return;
+      refs.push({ kind, index, item, rawName });
+    });
+  };
+
+  pushRefs('order_item', orderDraft?.items || []);
+  pushRefs('upsell_item', upsell?.items || []);
+  pushRefs('recommendation_item', Array.isArray(recommendations) ? recommendations : []);
+
+  return refs;
+}
+
+function replaceMenuNamesInText(text, replacements = []) {
+  let out = asText(text);
+  replacements.forEach(({ original, localized }) => {
+    if (!original || !localized || original === localized || !out.includes(original)) return;
+    out = out.split(original).join(localized);
+  });
+  return out;
+}
+
 function patchDisplayNames({ replyText, orderDraft, upsell, recommendations, customCategories }) {
   if (orderDraft && Array.isArray(orderDraft.items)) {
     orderDraft.items = orderDraft.items.map((it) => ({
       ...it,
-      display_name: shouldProtectItemName(it)
-        ? getItemName(it)
-        : asText(it.display_name || it.name || it.code),
+      display_name: asText(it.display_name || it.name || it.raw_name || it.code),
     }));
   }
   if (upsell && Array.isArray(upsell.items)) {
     upsell.items = upsell.items.map((it) => ({
       ...it,
-      display_name: shouldProtectItemName(it)
-        ? getItemName(it)
-        : asText(it.display_name || it.name || it.code),
+      display_name: asText(it.display_name || it.name || it.raw_name || it.code),
     }));
   }
   if (Array.isArray(recommendations)) {
     recommendations = recommendations.map((it) => ({
       ...it,
-      display_name: shouldProtectItemName(it)
-        ? getItemName(it)
-        : asText(it.display_name || it.name || it.code || it.item_code),
+      display_name: asText(it.display_name || it.name || it.raw_name || it.code || it.item_code),
     }));
   }
   return { replyText, orderDraft, upsell, recommendations, customCategories };
@@ -129,6 +174,7 @@ export async function localizeUiPayloadBatch({
   recommendations = null,
   customCategories = [],
   translateTextFn = translateText,
+  translateMenuItemNameFn = translateMenuItemName,
 } = {}) {
   const lang = normalizeLang(targetLanguage);
   const localized = {
@@ -142,7 +188,31 @@ export async function localizeUiPayloadBatch({
     recommendations: Array.isArray(recommendations) ? [...recommendations] : recommendations,
     customCategories: Array.isArray(customCategories) ? [...customCategories] : [],
   };
-  const protectedTerms = collectProtectedTerms(localized);
+  const menuItemRefs = collectMenuItemRefs(localized);
+  const menuNamePairs = await Promise.all(
+    menuItemRefs.map(async (ref) => {
+      const localizedName = shouldProtectItemName(ref.item)
+        ? ref.rawName
+        : await translateMenuItemNameRuntime(ref.rawName, lang, translateMenuItemNameFn);
+      return {
+        ...ref,
+        localizedName: asText(localizedName) || ref.rawName,
+      };
+    })
+  );
+  const protectedTerms = normalizeProtectedTerms([
+    ...collectProtectedTerms(localized),
+    ...menuNamePairs.map((pair) => pair.rawName),
+  ]);
+  const menuNameReplacements = normalizeProtectedTerms(menuNamePairs.map((pair) => pair.rawName)).map(
+    (original) => {
+      const pair = menuNamePairs.find((entry) => entry.rawName === original);
+      return {
+        original,
+        localized: pair?.localizedName || original,
+      };
+    }
+  );
 
   const entries = [];
   const add = (kind, index, text, terms = []) => {
@@ -158,18 +228,36 @@ export async function localizeUiPayloadBatch({
 
   add('reply', -1, localized.replyText, protectedTerms);
   add('upsell_text', -1, localized.upsell?.text, protectedTerms);
-  (localized.orderDraft?.items || []).forEach((it, i) => {
-    if (!shouldProtectItemName(it)) add('order_item', i, it?.name);
-  });
-  (localized.upsell?.items || []).forEach((it, i) => {
-    if (!shouldProtectItemName(it)) add('upsell_item', i, it?.name);
-  });
-  (Array.isArray(localized.recommendations) ? localized.recommendations : []).forEach((it, i) =>
-    !shouldProtectItemName(it) ? add('recommendation_item', i, it?.name) : null
-  );
   localized.customCategories.forEach((name, i) => add('custom_category', i, name));
 
+  menuNamePairs.forEach((entry) => {
+    if (entry.kind === 'order_item' && localized.orderDraft?.items?.[entry.index]) {
+      const it = localized.orderDraft.items[entry.index];
+      it.raw_name = entry.rawName;
+      it.name = entry.localizedName;
+      it.display_name = entry.localizedName;
+    } else if (entry.kind === 'upsell_item' && localized.upsell?.items?.[entry.index]) {
+      const it = localized.upsell.items[entry.index];
+      it.raw_name = entry.rawName;
+      it.name = entry.localizedName;
+      it.display_name = entry.localizedName;
+    } else if (
+      entry.kind === 'recommendation_item' &&
+      Array.isArray(localized.recommendations) &&
+      localized.recommendations[entry.index]
+    ) {
+      const it = localized.recommendations[entry.index];
+      it.raw_name = entry.rawName;
+      it.name = entry.localizedName;
+      it.display_name = entry.localizedName;
+    }
+  });
+
   if (entries.length === 0) {
+    localized.replyText = replaceMenuNamesInText(localized.replyText, menuNameReplacements);
+    if (localized.upsell) {
+      localized.upsell.text = replaceMenuNamesInText(localized.upsell.text, menuNameReplacements);
+    }
     return patchDisplayNames(localized);
   }
 
@@ -199,54 +287,17 @@ export async function localizeUiPayloadBatch({
         localized.replyText = translated;
       } else if (entry.kind === 'upsell_text' && localized.upsell) {
         localized.upsell.text = translated;
-      } else if (entry.kind === 'order_item' && localized.orderDraft?.items?.[entry.index]) {
-        const it = localized.orderDraft.items[entry.index];
-        it.raw_name = getItemName(it);
-        it.name = translated;
-        it.display_name = translated;
-      } else if (entry.kind === 'upsell_item' && localized.upsell?.items?.[entry.index]) {
-        const it = localized.upsell.items[entry.index];
-        it.raw_name = getItemName(it);
-        it.name = translated;
-        it.display_name = translated;
-      } else if (
-        entry.kind === 'recommendation_item' &&
-        Array.isArray(localized.recommendations) &&
-        localized.recommendations[entry.index]
-      ) {
-        const it = localized.recommendations[entry.index];
-        it.raw_name = getItemName(it);
-        it.name = translated;
-        it.display_name = translated;
       } else if (entry.kind === 'custom_category' && localized.customCategories[entry.index] != null) {
         localized.customCategories[entry.index] = translated;
       }
     });
-
-    // Keep protected menu names in original form.
-    (localized.orderDraft?.items || []).forEach((it) => {
-      if (!shouldProtectItemName(it)) return;
-      const raw = getItemName(it);
-      it.raw_name = raw;
-      it.name = raw;
-      it.display_name = raw;
-    });
-    (localized.upsell?.items || []).forEach((it) => {
-      if (!shouldProtectItemName(it)) return;
-      const raw = getItemName(it);
-      it.raw_name = raw;
-      it.name = raw;
-      it.display_name = raw;
-    });
-    (Array.isArray(localized.recommendations) ? localized.recommendations : []).forEach((it) => {
-      if (!shouldProtectItemName(it)) return;
-      const raw = getItemName(it);
-      it.raw_name = raw;
-      it.name = raw;
-      it.display_name = raw;
-    });
   } catch (err) {
     console.error('[runtimeUiLocalization] batch localization failed', err);
+  }
+
+  localized.replyText = replaceMenuNamesInText(localized.replyText, menuNameReplacements);
+  if (localized.upsell) {
+    localized.upsell.text = replaceMenuNamesInText(localized.upsell.text, menuNameReplacements);
   }
 
   return patchDisplayNames(localized);

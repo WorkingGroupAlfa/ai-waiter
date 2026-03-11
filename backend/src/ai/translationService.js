@@ -142,3 +142,50 @@ export async function translateText(text, targetLang, sourceLang = null) {
     return original;
   }
 }
+
+/**
+ * Localize a menu item name while preserving menu style.
+ * Prefer light-touch localization over coarse dictionary translation.
+ *
+ * @param {string} text
+ * @param {string} targetLang
+ * @param {string|null} sourceLang
+ * @returns {Promise<string>}
+ */
+export async function translateMenuItemName(text, targetLang, sourceLang = null) {
+  const original = String(text ?? '');
+  const trimmed = original.trim();
+
+  if (!trimmed) return '';
+  const target = String(targetLang || '').trim().toLowerCase();
+  if (!target) return original;
+
+  if (!hasOpenAI) {
+    return original;
+  }
+
+  const systemPrompt =
+    'You localize restaurant menu item names. Preserve menu style, dish identity, transliterations, and signature naming. Do not replace dish names with coarse household dictionary equivalents when the original menu-style name is better. Keep proper product, brand, cocktail, and signature dish names unchanged. Translate only generic descriptors that clearly improve comprehension. When unsure, keep the original menu-style wording. Return ONLY the localized menu item name.';
+
+  const userPayload = sourceLang
+    ? `Source language: ${sourceLang}\nTarget language: ${target}\nMenu item name:\n${original}`
+    : `Target language: ${target}\nMenu item name:\n${original}`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: DEFAULT_TRANSLATION_MODEL,
+      temperature: 0,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPayload },
+      ],
+    });
+
+    const translated = completion.choices?.[0]?.message?.content?.trim();
+    if (!translated) return original;
+    return translated;
+  } catch (err) {
+    console.error('[translationService] translateMenuItemName error', err);
+    return original;
+  }
+}
