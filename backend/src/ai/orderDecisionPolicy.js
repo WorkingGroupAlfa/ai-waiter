@@ -15,6 +15,7 @@ const EXPLICIT_ORDER_PATTERNS = [
 
 const EXACT_MATCH_SOURCES = new Set([
   'name_exact',
+  'name_exact_short',
   'name_fuzzy',
   'name_fuzzy_drink',
   'ai_synonyms_db',

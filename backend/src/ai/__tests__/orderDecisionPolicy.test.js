@@ -34,6 +34,51 @@ test('exact match fast path enables add_exact for explicit order', () => {
   assert.deepEqual(decision.exactItemIds, ['m1']);
 });
 
+test('short exact match source enables add_exact for explicit order intent', () => {
+  const understanding = buildQueryUnderstanding('Хочу том ям', { localeHint: 'ru' });
+  const decision = decideOrderMutationPolicy({
+    resolvedIntent: 'order',
+    text: 'Хочу том ям',
+    nluItems: [
+      makeItem({
+        rawText: 'том ям',
+        menu_item_id: 'm_short_1',
+        matchConfidence: 0.995,
+        matchSource: 'name_exact_short',
+      }),
+    ],
+    clarificationNeeded: false,
+    queryUnderstanding: understanding,
+  });
+
+  assert.equal(decision.mode, 'add_exact');
+  assert.equal(decision.reason, 'exact_match_fast_path');
+  assert.deepEqual(decision.exactItemIds, ['m_short_1']);
+});
+
+test('short exact match no longer downgrades into suggest fallback path', () => {
+  const understanding = buildQueryUnderstanding('Tom Yum', { localeHint: 'en' });
+  const decision = decideOrderMutationPolicy({
+    resolvedIntent: 'order',
+    text: 'Tom Yum',
+    nluItems: [
+      makeItem({
+        rawText: 'Tom Yum',
+        menu_item_id: 'm_short_2',
+        matchConfidence: 0.99,
+        matchSource: 'name_exact_short',
+      }),
+    ],
+    clarificationNeeded: false,
+    queryUnderstanding: understanding,
+  });
+
+  assert.equal(decision.mode, 'add_exact');
+  assert.notEqual(decision.mode, 'suggest_list');
+  assert.equal(decision.reason, 'exact_match_direct_mention');
+  assert.deepEqual(decision.exactItemIds, ['m_short_2']);
+});
+
 test('"I want noodles" routes to suggest_list and blocks cart mutation', () => {
   const understanding = buildQueryUnderstanding('I want noodles', { localeHint: 'en' });
   const decision = decideOrderMutationPolicy({
