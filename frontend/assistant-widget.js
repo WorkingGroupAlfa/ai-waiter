@@ -2323,7 +2323,7 @@ flex: 0 0 auto;
   </div>
   <button type="button" class="aiw-cart-close" aria-label="${
     UI_TEXTS.cart_close_aria || "Close"
-  }">Г—</button>
+  }">×</button>
 </div>
 
     <div class="aiw-cart-list"></div>
