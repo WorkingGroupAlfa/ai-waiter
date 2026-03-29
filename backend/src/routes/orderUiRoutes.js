@@ -399,6 +399,8 @@ try {
         const row = byCode.get(String(it.code || it.item_code || '')) || null;
         return {
           ...it,
+          name_ua: it?.name_ua || row?.name_ua || null,
+          name_en: it?.name_en || row?.name_en || null,
           protect_name_from_translation: Boolean(
             it?.protect_name_from_translation ?? row?.protect_name_from_translation
           ),
@@ -411,6 +413,8 @@ try {
         const row = byCode.get(String(it.code || it.item_code || '')) || null;
         return {
           ...it,
+          name_ua: it?.name_ua || row?.name_ua || null,
+          name_en: it?.name_en || row?.name_en || null,
           protect_name_from_translation: Boolean(
             it?.protect_name_from_translation ?? row?.protect_name_from_translation
           ),

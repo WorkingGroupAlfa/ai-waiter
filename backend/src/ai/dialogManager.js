@@ -2672,6 +2672,8 @@ if (!currentOrder) {
         }
 
         metaByCode[row.item_code] = {
+          nameUa: row.name_ua || null,
+          nameEn: row.name_en || null,
           unitPrice:
             row.base_price != null ? Number(row.base_price) : null,
           imageUrl:
@@ -2693,6 +2695,8 @@ if (!currentOrder) {
                 ? it.unitPrice
                 : meta.unitPrice ?? it.unitPrice ?? null,
             imageUrl: meta.imageUrl || null,
+            name_ua: it.name_ua || meta.nameUa || null,
+            name_en: it.name_en || meta.nameEn || null,
             protect_name_from_translation: Boolean(
               it.protect_name_from_translation ?? meta.protectNameFromTranslation
             ),
@@ -2708,6 +2712,8 @@ if (!currentOrder) {
             ...u,
             unitPrice: meta.unitPrice ?? null,
             imageUrl: meta.imageUrl || null,
+            name_ua: u.name_ua || meta.nameUa || null,
+            name_en: u.name_en || meta.nameEn || null,
             protect_name_from_translation: Boolean(
               u.protect_name_from_translation ?? meta.protectNameFromTranslation
             ),
@@ -2725,6 +2731,8 @@ if (!currentOrder) {
           // fill missing fields from menu
           if (r.unitPrice == null && meta.unitPrice != null) r.unitPrice = meta.unitPrice;
           if (!r.imageUrl && meta.imageUrl) r.imageUrl = meta.imageUrl;
+          if (!r.name_ua && meta.nameUa) r.name_ua = meta.nameUa;
+          if (!r.name_en && meta.nameEn) r.name_en = meta.nameEn;
           if (r.protect_name_from_translation == null) {
             r.protect_name_from_translation = Boolean(meta.protectNameFromTranslation);
           }

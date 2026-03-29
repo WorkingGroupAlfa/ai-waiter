@@ -16,6 +16,10 @@ function shouldProtectItemName(item) {
   return item.protect_name_from_translation === true || item.protectNameFromTranslation === true;
 }
 
+function shouldForceUkrainianDisplayName(lang) {
+  return lang === 'ru' || lang === 'uk';
+}
+
 function getItemName(item) {
   return asText(item?.raw_name || item?.name || item?.display_name || item?.code || item?.item_code);
 }
@@ -191,9 +195,15 @@ export async function localizeUiPayloadBatch({
   const menuItemRefs = collectMenuItemRefs(localized);
   const menuNamePairs = await Promise.all(
     menuItemRefs.map(async (ref) => {
-      const localizedName = shouldProtectItemName(ref.item)
+      const protectedName = shouldProtectItemName(ref.item);
+      const forceUa = shouldForceUkrainianDisplayName(lang) && !protectedName;
+      const ukrainianName = asText(ref.item?.name_ua || ref.item?.nameUa || '');
+
+      const localizedName = protectedName
         ? ref.rawName
-        : await translateMenuItemNameRuntime(ref.rawName, lang, translateMenuItemNameFn);
+        : forceUa
+          ? ukrainianName || ref.rawName
+          : await translateMenuItemNameRuntime(ref.rawName, lang, translateMenuItemNameFn);
       return {
         ...ref,
         localizedName: asText(localizedName) || ref.rawName,

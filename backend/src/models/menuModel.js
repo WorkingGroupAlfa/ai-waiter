@@ -129,6 +129,8 @@ export async function getMenuItemsBasicByCodes(restaurantId, itemCodes = []) {
   const sql = `
     SELECT
       m.item_code,
+      m.name_ua,
+      m.name_en,
       m.base_price,
       m.protect_name_from_translation,
       COALESCE(
@@ -140,7 +142,7 @@ export async function getMenuItemsBasicByCodes(restaurantId, itemCodes = []) {
     LEFT JOIN menu_item_photos p ON p.menu_item_id = m.id
     WHERE m.restaurant_id = $1
       AND m.item_code = ANY($2::text[])
-    GROUP BY m.item_code, m.base_price, m.protect_name_from_translation
+    GROUP BY m.item_code, m.name_ua, m.name_en, m.base_price, m.protect_name_from_translation
   `;
 
   const result = await query(sql, [restaurantId, itemCodes]);
