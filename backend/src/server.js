@@ -77,6 +77,7 @@ const allowedExactOrigins = new Set([
 
   // Vercel prod (если есть)
   "https://ai-waiter-i34r.vercel.app",
+  "https://ai-waiter.workingspace11a.workers.dev",
 ]);
 
 function isAllowedOrigin(origin) {
@@ -98,6 +99,7 @@ function isAllowedOrigin(origin) {
     // ai-waiter-i34r-git-main-....vercel.app
     // ai-waiter-i34r-xxxxx-....vercel.app
     if (host.endsWith(".vercel.app") && host.startsWith("ai-waiter-i34r")) return true;
+    if (host.endsWith(".workingspace11a.workers.dev") && host.startsWith("ai-waiter")) return true;
 
     return false;
   } catch {
